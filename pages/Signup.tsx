@@ -1,0 +1,192 @@
+
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { UserRole } from '../types.ts';
+import { supabase } from '../supabase.ts';
+
+const Signup: React.FC = () => {
+  const { role } = useParams<{ role: string }>();
+  const navigate = useNavigate();
+  const isBarber = role?.toUpperCase() === UserRole.BARBER;
+
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    accessCode: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const BARBER_ACCESS_CODE = 'BMA2026';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    if (isBarber && formData.accessCode !== BARBER_ACCESS_CODE) {
+      setError('Código de acesso inválido para barbeiros');
+      setLoading(false);
+      return;
+    }
+
+    const { data, error: signupError } = await supabase.auth.signUp({
+      email: formData.email,
+      password: formData.password,
+      options: {
+        data: {
+          name: formData.name,
+          role: isBarber ? UserRole.BARBER : UserRole.CLIENT
+        }
+      }
+    });
+
+    if (signupError) {
+      setError(signupError.message);
+      setLoading(false);
+    } else {
+      // If email confirmation is disabled, 'data.session' will be present.
+      // If it's enabled, we'll suggest a manual login or check session.
+      if (data.session) {
+        navigate(isBarber ? '/barber' : '/client');
+      } else {
+        // Fallback for when session is null but no error (usually means confirmation is still pending)
+        // However, user requested to not require it, so we'll assume they'll disable it in dashboard.
+        navigate(`/login/${role}`);
+      }
+    }
+  };
+
+  return (
+    <div className="bg-background-dark text-white font-display min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-primary selection:text-background-dark">
+      <div className="flex-1 flex flex-col w-full max-w-md mx-auto relative z-10">
+        <div className="@container w-full">
+          <div className="relative w-full h-[35vh] min-h-[280px] rounded-b-3xl overflow-hidden shadow-2xl shadow-black/50">
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url("https://lh3.googleusercontent.com/aida-public/AB6AXuCsquxjvqFUD9QMP_jKaWdYDj5Qgyjfe7oVinDk3KA2KOnKgwiIMwmK49MObhZt4MP7Yv36D2Tz-dHxTacTbA707bm3GzjiLIb7e8PMxYjFclTPOINFFQyvjT4OtosTKmwy-pMCafRnhIFpMXXNuj89cyDGZJnKBLdLzJt7OU0zLN4v_OPNMhPVkZUYQq0LmN4UNeT3dPMnsS0DvJA2Cs81cfuJCVlxuacDzWoq3AokOtwk7U2iBMl-iqiqM6a9IM-2AQr75Eh9rns")` }}
+            ></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#171611] via-[#171611]/60 to-transparent"></div>
+            <div className="absolute inset-0 flex flex-col justify-end p-6 pb-8">
+              <div className="flex items-center gap-2 mb-2 opacity-80 cursor-pointer" onClick={() => navigate('/')}>
+                <span className="material-symbols-outlined text-primary" style={{ fontSize: '20px' }}>content_cut</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-primary">Barbearia Mateus Andrade</span>
+              </div>
+              <h1 className="text-white text-3xl font-extrabold leading-tight">
+                Criar Conta,<br />
+                <span className="text-primary">{isBarber ? 'Barbeiro' : 'Cliente'}</span>
+              </h1>
+              <p className="text-text-muted text-sm mt-2 font-medium">Cadastre-se na nossa plataforma premium.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col px-6 py-8 gap-6">
+          <form className="flex-1 flex flex-col gap-6" onSubmit={handleSubmit}>
+            {error && <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm text-center">{error}</div>}
+
+            {isBarber && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-primary uppercase tracking-wider ml-1">Código de Acesso do Estabelecimento</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-primary group-focus-within:text-white transition-colors">key</span>
+                  </div>
+                  <input
+                    className="w-full h-14 pl-12 pr-4 bg-primary/10 border border-primary/30 rounded-xl text-white placeholder-primary/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
+                    placeholder="Código secreto"
+                    value={formData.accessCode}
+                    onChange={e => setFormData({ ...formData, accessCode: e.target.value })}
+                    required={isBarber}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Nome Completo</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors">person</span>
+                </div>
+                <input
+                  className="w-full h-14 pl-12 pr-4 bg-surface-dark border border-white/5 rounded-xl text-white placeholder-text-muted/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
+                  placeholder="Seu nome"
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">E-mail</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors">mail</span>
+                </div>
+                <input
+                  className="w-full h-14 pl-12 pr-4 bg-surface-dark border border-white/5 rounded-xl text-white placeholder-text-muted/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
+                  placeholder="seu@email.com"
+                  type="email"
+                  value={formData.email}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
+                  required
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Senha</label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors">lock</span>
+                </div>
+                <input
+                  className="w-full h-14 pl-12 pr-4 bg-surface-dark border border-white/5 rounded-xl text-white placeholder-text-muted/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
+                  placeholder="••••••••"
+                  type="password"
+                  value={formData.password}
+                  onChange={e => setFormData({ ...formData, password: e.target.value })}
+                  required
+                  disabled={loading}
+                  minLength={6}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1"></div>
+            <div className="flex flex-col gap-4 mt-4 mb-4">
+              <button
+                className="w-full h-14 bg-primary hover:bg-yellow-500 active:scale-[0.98] text-background-dark text-base font-bold rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                type="submit"
+                disabled={loading}
+              >
+                <span>{loading ? 'Criando conta...' : `Criar conta de ${isBarber ? 'Barbeiro' : 'Cliente'}`}</span>
+                <span className="material-symbols-outlined text-xl">{loading ? 'sync' : 'person_add'}</span>
+              </button>
+
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-white/5"></div>
+                <span className="flex-shrink-0 mx-4 text-text-muted text-xs uppercase tracking-wider">Já tem uma conta?</span>
+                <div className="flex-grow border-t border-white/5"></div>
+              </div>
+              <button
+                className="w-full h-14 bg-transparent border border-white/5 hover:border-text-muted hover:bg-surface-dark active:scale-[0.98] text-white text-base font-bold rounded-xl flex items-center justify-center gap-2 transition-all duration-200"
+                type="button"
+                onClick={() => navigate(`/login/${role}`)}
+              >
+                Fazer Login
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Signup;
