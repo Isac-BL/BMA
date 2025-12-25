@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.ts';
 import { User, Appointment } from '../types.ts';
+import { formatCurrency } from '../utils.ts';
 import BarberNavigation from '../components/BarberNavigation.tsx';
 import BarberSidebar from '../components/BarberSidebar.tsx';
 
@@ -37,6 +39,8 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
     monthRevenue: 0,
     nextAppointment: null
   });
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -49,11 +53,48 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
 
   useEffect(() => {
     fetchDashboardData();
+    fetchNotifications();
+
+    // Subscribe to real-time notifications
+    const channel = supabase
+      .channel('realtime_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          setNotifications(prev => [payload.new, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user.id]);
+
+  const fetchNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
-      // 1. Fetch appointments from the start of the current month for accurate stats
+      // Fetch appointments from the start of the current month
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
 
@@ -62,7 +103,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
         .select(`
           *,
           client:client_id(name),
-          service:service_id(name)
+          appointment_services(service:service_id(name))
         `)
         .eq('barber_id', user.id)
         .gte('appointment_date', startOfMonthStr)
@@ -71,11 +112,10 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
 
       if (error) throw error;
 
-      // 2. Calculate Stats
+      // Calculate Stats
       const now = new Date();
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay());
-      // reset time for comparison
       startOfWeek.setHours(0, 0, 0, 0);
       const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -85,15 +125,24 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
       let todayRevenue = 0;
       let weekRevenue = 0;
       let monthRevenue = 0;
+      let nextAppCandidate: any = null;
 
       appointments?.forEach(app => {
         const appDateOnly = new Date(app.appointment_date + 'T00:00:00');
         const isCancelled = app.status.startsWith('cancelled');
-        const isEarned = app.status === 'confirmed' || app.status === 'completed';
+        const isEarned = app.status === 'completed';
 
         if (app.appointment_date === todayStr && !isCancelled) {
           todayCount++;
           if (isEarned) todayRevenue += parseFloat(app.value) || 0;
+
+          // Find next appointment for today
+          const [h, m] = app.appointment_time.split(':').map(Number);
+          const appTime = new Date();
+          appTime.setHours(h, m, 0, 0);
+          if (appTime > now && !nextAppCandidate && !isCancelled) {
+            nextAppCandidate = app;
+          }
         }
 
         if (appDateOnly >= startOfWeek && !isCancelled) {
@@ -107,13 +156,6 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
         }
       });
 
-      // 3. Find Next Appointment (closest to now, must be pending or confirmed)
-      // We search from today onwards
-      const nextApp = appointments?.find(app => {
-        const appTime = new Date(app.appointment_date + 'T' + app.appointment_time);
-        return appTime >= now && (app.status === 'pending' || app.status === 'confirmed');
-      });
-
       setStats({
         todayCount,
         weekCount,
@@ -121,15 +163,15 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
         todayRevenue,
         weekRevenue,
         monthRevenue,
-        nextAppointment: nextApp ? {
-          clientName: (nextApp.client as any)?.name || 'Cliente',
-          time: nextApp.appointment_time,
-          serviceName: (nextApp.service as any)?.name || 'Serviço'
+        nextAppointment: nextAppCandidate ? {
+          clientName: nextAppCandidate.client?.name || 'Cliente',
+          time: nextAppCandidate.appointment_time,
+          serviceName: nextAppCandidate.appointment_services?.map((as: any) => as.service?.name).join(' + ') || 'Serviço'
         } : null
       });
 
     } catch (err) {
-      console.error('Error fetching dashboard stats:', err);
+      console.error('Error fetching dashboard data:', err);
     } finally {
       setLoading(false);
     }
@@ -144,170 +186,186 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
   }
 
   return (
-    <div className="bg-background-light dark:bg-background-dark font-display text-white transition-colors duration-300 min-h-screen">
+    <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white antialiased">
       <BarberSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         user={user}
         onLogout={onLogout}
       />
-      <div className="relative flex min-h-screen w-full flex-col max-w-md mx-auto overflow-hidden bg-background-light dark:bg-background-dark shadow-2xl">
-        <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-gray-200 dark:border-white/5">
+
+      <div className="relative flex min-h-screen flex-col overflow-x-hidden pb-[80px] max-w-md mx-auto bg-background-light dark:bg-background-dark shadow-2xl">
+        {/* Top App Bar */}
+        <header className="sticky top-0 z-30 flex items-center justify-between bg-background-light/95 px-4 py-4 backdrop-blur-md dark:bg-background-dark/95 border-b border-gray-100 dark:border-white/5">
           <div className="flex items-center gap-3">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-surface-dark transition-colors relative text-slate-900 dark:text-white">
               <span className="material-symbols-outlined">menu</span>
-              <div className="absolute top-1 left-1 size-2 bg-primary rounded-full animate-pulse"></div>
+              {notifications.length > 0 && (
+                <div className="absolute top-1 left-1 size-2 bg-primary rounded-full animate-pulse"></div>
+              )}
             </button>
             <div className="flex flex-col">
-              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 leading-none mb-0.5">Bem-vindo,</span>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white leading-none">{user.name}</h2>
+              <span className="text-xs font-medium text-slate-500 dark:text-gray-400">{formattedDate}</span>
+              <h2 className="text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white">Olá, {firstName}</h2>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="flex items-center justify-center size-10 rounded-full bg-gray-100 dark:bg-surface-dark text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-primary/20 transition-colors relative">
-              <span className="material-symbols-outlined text-[24px]">notifications</span>
-              <span className="absolute top-2.5 right-2.5 size-2 bg-primary rounded-full animate-pulse"></span>
-            </button>
-            <button
-              onClick={onLogout}
-              className="flex items-center justify-center size-10 rounded-full bg-gray-100 dark:bg-surface-dark text-gray-900 dark:text-white hover:bg-red-500/20 transition-colors"
-            >
-              <span className="material-symbols-outlined text-[24px]">logout</span>
-            </button>
-          </div>
+          <button onClick={() => setShowNotifications(true)} className="relative h-10 w-10 flex items-center justify-center rounded-xl bg-gray-100 dark:bg-surface-dark text-slate-900 dark:text-white hover:scale-105 active:scale-95 transition-all">
+            <span className="material-symbols-outlined">notifications</span>
+            {notifications.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-black text-background-dark ring-2 ring-white dark:ring-background-dark">
+                {notifications.length}
+              </span>
+            )}
+          </button>
         </header>
 
-        <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
-          <section className="px-6 pt-6 pb-2">
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                Olá, {firstName}
-                <span className="text-2xl animate-pulse">👋</span>
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                <span className="material-symbols-outlined text-[16px]">calendar_today</span>
-                {formattedDate}
-              </p>
+        <main className="flex-1 overflow-y-auto no-scrollbar">
+          {/* Main Revenue Card */}
+          <section className="px-4 pt-4">
+            <div className="relative overflow-hidden rounded-[2.5rem] bg-surface-dark p-6 shadow-2xl shadow-primary/20 border border-white/5">
+              <div className="absolute -right-8 -top-8 size-40 rounded-full bg-primary/10 blur-3xl"></div>
+              <div className="absolute -left-8 -bottom-8 size-40 rounded-full bg-primary/5 blur-3xl"></div>
+
+              <div className="relative space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <span className="material-symbols-outlined">payments</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold uppercase tracking-widest text-gray-400">Faturamento Hoje</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-green-500 text-[10px] font-black uppercase tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">
+                    <span className="material-symbols-outlined text-sm">trending_up</span>
+                    <span>No Ar</span>
+                  </div>
+                </div>
+
+                <div className="flex items-baseline gap-1">
+                  <h1 className="text-5xl font-black tracking-tight text-white">
+                    {formatCurrency(stats.todayRevenue)}
+                  </h1>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <div className="rounded-2xl bg-white/5 p-3 border border-white/5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Semana</p>
+                    <p className="text-lg font-black text-white">{formatCurrency(stats.weekRevenue)}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/5 p-3 border border-white/5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Mês</p>
+                    <p className="text-lg font-black text-white">{formatCurrency(stats.monthRevenue)}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
-          <section className="px-6 py-4">
+          {/* Next Appointment Card */}
+          <section className="px-4 mt-6">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm text-primary">schedule_send</span>
+                Próximo Cliente
+              </h3>
+            </div>
             {stats.nextAppointment ? (
-              <div className="w-full bg-gradient-to-r from-surface-darker to-surface-dark border border-white/5 rounded-xl p-4 flex items-center justify-between shadow-soft">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                    <span className="material-symbols-outlined">content_cut</span>
+              <div className="group relative flex items-center justify-between rounded-3xl bg-white p-5 shadow-soft transition-all hover:bg-slate-50 dark:bg-surface-dark dark:hover:bg-surface-dark/60 border border-slate-100 dark:border-white/5 overflow-hidden">
+                <div className="absolute left-0 top-0 h-full w-1.5 bg-primary"></div>
+                <div className="flex items-center gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                    <span className="material-symbols-outlined text-3xl">person</span>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Próximo Cliente</p>
-                    <p className="font-bold text-white">{stats.nextAppointment.clientName}</p>
-                    <p className="text-[10px] text-primary/80 uppercase font-bold">{stats.nextAppointment.serviceName}</p>
+                  <div className="flex flex-col gap-1">
+                    <h4 className="text-lg font-black leading-none text-slate-900 dark:text-white capitalize">{stats.nextAppointment.clientName}</h4>
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-[0.15em]">{stats.nextAppointment.serviceName}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">Horário</p>
-                  <p className="font-bold text-primary">{stats.nextAppointment.time}</p>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{stats.nextAppointment.time}</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full">Confirmado</span>
                 </div>
               </div>
             ) : (
-              <div className="w-full bg-surface-dark/50 border border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-gray-500 text-3xl">event_busy</span>
-                <p className="text-sm text-gray-400">Nenhum agendamento pendente</p>
+              <div className="flex flex-col items-center justify-center py-12 rounded-3xl bg-white/50 dark:bg-surface-dark/20 border border-dashed border-slate-200 dark:border-white/5">
+                <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-white/10 mb-2">event_busy</span>
+                <p className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">Sem agendamentos próximos</p>
               </div>
             )}
           </section>
 
-          <section className="px-6 pb-2">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Agendamentos</h3>
-              <button
-                onClick={() => navigate('/barber/hours')}
-                className="text-primary text-xs font-semibold hover:text-primary/80 transition-colors"
-              >
-                Ver Agenda
-              </button>
+          {/* Quick Stats Grid */}
+          <section className="grid grid-cols-3 gap-3 px-4 mt-6">
+            <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-4 shadow-soft dark:bg-surface-dark border border-slate-100 dark:border-white/5">
+              <span className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase mb-1">Hoje</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.todayCount}</span>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white dark:bg-surface-dark rounded-xl p-3 flex flex-col items-center justify-center gap-1 shadow-sm border border-gray-100 dark:border-white/5 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="size-8 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-1">
-                  <span className="material-symbols-outlined text-[18px] text-gray-600 dark:text-gray-300">today</span>
-                </div>
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">{stats.todayCount}</span>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400">Hoje</span>
-              </div>
-              <div className="bg-white dark:bg-surface-dark rounded-xl p-3 flex flex-col items-center justify-center gap-1 shadow-sm border border-gray-100 dark:border-white/5 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="size-8 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-1">
-                  <span className="material-symbols-outlined text-[18px] text-gray-600 dark:text-gray-300">date_range</span>
-                </div>
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">{stats.weekCount}</span>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400">Semana</span>
-              </div>
-              <div className="bg-white dark:bg-surface-dark rounded-xl p-3 flex flex-col items-center justify-center gap-1 shadow-sm border border-gray-100 dark:border-white/5 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="size-8 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-1">
-                  <span className="material-symbols-outlined text-[18px] text-gray-600 dark:text-gray-300">calendar_month</span>
-                </div>
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">{stats.monthCount}</span>
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 dark:text-gray-400">Mês</span>
-              </div>
+            <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-4 shadow-soft dark:bg-surface-dark border border-slate-100 dark:border-white/5">
+              <span className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase mb-1">Semana</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.weekCount}</span>
+            </div>
+            <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-4 shadow-soft dark:bg-surface-dark border border-slate-100 dark:border-white/5">
+              <span className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase mb-1">Mês</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.monthCount}</span>
             </div>
           </section>
 
-          <section className="px-6 py-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Financeiro</h3>
-              <button className="text-primary text-xs font-semibold hover:text-primary/80 transition-colors">Relatórios</button>
+          {/* Activity Section */}
+          <section className="px-4 mt-8 pb-12">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-gray-400">Atalhos Rápidos</h3>
             </div>
-            <div className="flex flex-col gap-3">
-              <div className="bg-white dark:bg-surface-dark rounded-xl p-4 flex items-center justify-between shadow-soft border border-gray-100 dark:border-white/5 relative overflow-hidden">
-                <div className="absolute w-1 h-full left-0 top-0 bg-primary/40 rounded-l-xl"></div>
-                <div className="flex items-center gap-4">
-                  <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <span className="material-symbols-outlined">payments</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Faturamento Hoje</span>
-                    <span className="text-xl font-bold text-gray-900 dark:text-white">R$ <span className="text-primary">{stats.todayRevenue.toFixed(2).replace('.', ',')}</span></span>
-                  </div>
-                </div>
-                <div className="flex items-center text-green-500 text-xs font-bold bg-green-500/10 px-2 py-1 rounded">
-                  <span className="material-symbols-outlined text-[14px] mr-1">trending_up</span>
-                  Ativo
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white dark:bg-surface-dark rounded-xl p-4 flex flex-col justify-between h-32 shadow-soft border border-gray-100 dark:border-white/5 relative overflow-hidden group">
-                  <div className="flex justify-between items-start">
-                    <div className="size-9 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-[20px]">bar_chart</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">Semanal</p>
-                    <p className="text-lg font-bold text-primary">R$ {stats.weekRevenue.toFixed(0)}</p>
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-surface-dark rounded-xl p-4 flex flex-col justify-between h-32 shadow-soft border border-gray-100 dark:border-white/5 relative overflow-hidden group">
-                  <div className="flex justify-between items-start">
-                    <div className="size-9 rounded-full bg-gray-100 dark:bg-white/5 flex items-center justify-center text-gray-600 dark:text-gray-300 group-hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">Mensal</p>
-                    <p className="text-lg font-bold text-primary">R$ {stats.monthRevenue.toFixed(0)}</p>
-                  </div>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => navigate('/barber/schedule')} className="flex flex-col items-center gap-3 p-6 rounded-[2rem] bg-primary text-background-dark shadow-gold hover:scale-[1.02] active:scale-[0.98] transition-all group">
+                <span className="material-symbols-outlined text-4xl">calendar_month</span>
+                <span className="font-black text-sm uppercase tracking-widest">Agenda</span>
+              </button>
+              <button onClick={() => navigate('/barber/finances')} className="flex flex-col items-center gap-3 p-6 rounded-[2rem] bg-surface-dark text-white border border-white/5 hover:bg-surface-highlight hover:scale-[1.02] active:scale-[0.98] transition-all">
+                <span className="material-symbols-outlined text-4xl text-primary">account_balance_wallet</span>
+                <span className="font-black text-sm uppercase tracking-widest">Finanças</span>
+              </button>
             </div>
           </section>
-          <div className="h-6 w-full"></div>
         </main>
 
         <BarberNavigation />
       </div>
+
+      {/* Notifications Modal */}
+      {showNotifications && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-dark/80 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="relative w-full max-w-sm h-[80vh] bg-surface-dark rounded-[2.5rem] border border-white/5 flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="p-6 flex items-center justify-between border-b border-white/5">
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tight">Notificações</h2>
+                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Sua Barba em Dia</p>
+              </div>
+              <button onClick={() => setShowNotifications(false)} className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+              {notifications.length > 0 ? (
+                notifications.map((notif: any) => (
+                  <div key={notif.id} className="p-5 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-primary text-[10px] font-black uppercase tracking-widest">Novo Agendamento</p>
+                      <p className="text-white/20 text-[10px] font-bold">{new Date(notif.created_at).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <p className="text-white text-sm font-bold leading-relaxed">{notif.content}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center opacity-20">
+                  <span className="material-symbols-outlined text-6xl mb-2">notifications_off</span>
+                  <p className="text-xs font-black uppercase tracking-widest">Sem novas notificações</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

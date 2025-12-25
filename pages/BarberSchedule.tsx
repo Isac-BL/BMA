@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.ts';
 import { User, Appointment, Service } from '../types.ts';
+import { formatCurrency } from '../utils.ts';
 import BarberNavigation from '../components/BarberNavigation.tsx';
 import BarberSidebar from '../components/BarberSidebar.tsx';
 
@@ -69,7 +70,16 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
     const fetchScheduleData = async () => {
         setLoading(true);
         try {
-            let query = supabase.from('appointments').select('*, client:client_id(name), service:service_id(name, duration)').eq('barber_id', user.id);
+            let query = supabase
+                .from('appointments')
+                .select(`
+                    *,
+                    client:client_id(name),
+                    appointment_services(
+                        service:service_id(name, duration)
+                    )
+                `)
+                .eq('barber_id', user.id);
 
             if (viewMode === 'day') {
                 query = query.eq('appointment_date', selectedDate);
@@ -92,7 +102,14 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
 
             const { data, error } = await query.order('appointment_date').order('appointment_time');
             if (error) throw error;
-            setAppointments(data || []);
+
+            // Map the data to a cleaner structure
+            const mappedData = data.map(app => ({
+                ...app,
+                services_list: app.appointment_services?.map((as: any) => as.service) || []
+            }));
+
+            setAppointments(mappedData);
         } catch (err) {
             console.error('Error fetching schedule data:', err);
         } finally {
@@ -315,7 +332,9 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                                                     <div className="flex justify-between items-start mb-2">
                                                                         <div>
                                                                             <h3 className={`text-white font-black text-lg leading-tight ${app.status.startsWith('cancelled') ? 'line-through decoration-red-500/50' : ''}`}>{app.client?.name}</h3>
-                                                                            <p className="text-primary text-xs font-bold mt-1 tracking-wider uppercase">{app.service?.name}</p>
+                                                                            +                                                                            <p className="text-primary text-xs font-bold mt-1 tracking-wider uppercase truncate">
+                                                                                {app.services_list?.map((s: any) => s.name).join(' + ') || 'Serviço'}
+                                                                            </p>
                                                                         </div>
                                                                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${STATUS_MAP[app.status]?.bg} ${STATUS_MAP[app.status]?.color}`}>
                                                                             {STATUS_MAP[app.status]?.label}
@@ -323,7 +342,7 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                                                     </div>
                                                                     <div className="flex items-center gap-4 text-[10px] font-bold text-white/40">
                                                                         <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">schedule</span>{app.appointment_time}</div>
-                                                                        <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">payments</span>R$ {parseFloat(app.value).toFixed(2).replace('.', ',')}</div>
+                                                                        <div className="flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]">payments</span>{formatCurrency(app.value)}</div>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -423,7 +442,14 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                     {STATUS_MAP[selectedAppointment?.status]?.label}
                                 </span>
                                 <h2 className="text-white font-black text-2xl tracking-tight">{selectedAppointment?.client?.name}</h2>
-                                <p className="text-primary font-bold text-sm uppercase tracking-widest">{selectedAppointment?.service?.name}</p>
+                                <div className="mt-2 space-y-1">
+                                    {selectedAppointment?.services_list?.map((s: any, idx: number) => (
+                                        <p key={idx} className="text-primary font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-sm">content_cut</span>
+                                            {s.name} ({s.duration} min)
+                                        </p>
+                                    ))}
+                                </div>
                             </div>
                             <button onClick={() => { setSelectedAppointmentId(null); setIsRescheduling(false); }} className="size-10 bg-white/5 rounded-full flex items-center justify-center text-white/40 hover:text-white transition-colors">
                                 <span className="material-symbols-outlined">close</span>
@@ -439,7 +465,7 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                     </div>
                                     <div className="bg-background-dark p-4 rounded-2xl border border-white/5">
                                         <p className="text-[10px] font-bold text-text-muted uppercase mb-1">Valor</p>
-                                        <p className="text-primary font-black text-lg">R$ {parseFloat(selectedAppointment?.value || 0).toFixed(2).replace('.', ',')}</p>
+                                        <p className="text-white font-black text-lg">{formatCurrency(selectedAppointment?.value || 0)}</p>
                                     </div>
                                 </div>
 

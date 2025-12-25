@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Appointment, User, Service } from '../types.ts';
+import { formatCurrency } from '../utils.ts';
 import { supabase } from '../supabase.ts';
 
 interface ConfirmationProps {
   bookingState: {
-    service: Service | null;
+    services: Service[];
     barber: User | null;
     date: string | null;
     time: string | null;
@@ -18,25 +19,61 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const totalPrice = bookingState.services.reduce((acc, s) => acc + s.price, 0);
+  const totalDuration = bookingState.services.reduce((acc, s) => acc + s.duration, 0);
+
   const handleFinalize = async () => {
     if (loading) return;
     setLoading(true);
     setError(null);
 
     try {
-      if (!bookingState.service || !bookingState.barber || !bookingState.date || !bookingState.time) {
+      if (bookingState.services.length === 0 || !bookingState.barber || !bookingState.date || !bookingState.time) {
         throw new Error('Dados de agendamento incompletos.');
       }
 
-      const { data, error: insertError } = await supabase
+      // 0. Final availability check to prevent last-second conflicts
+      const { data: conflicts } = await supabase
+        .from('appointments')
+        .select(`
+          appointment_time, 
+          appointment_services(service:service_id(duration))
+        `)
+        .eq('barber_id', bookingState.barber.id)
+        .eq('appointment_date', bookingState.date)
+        .not('status', 'ilike', 'cancelled%');
+
+      const toMin = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+      };
+
+      const slotStart = toMin(bookingState.time);
+      const slotEnd = slotStart + totalDuration;
+
+      const hasConflict = (conflicts || []).some(app => {
+        const appStart = toMin(app.appointment_time);
+        const appDur = (app.appointment_services as any[])?.reduce((sum, s) => sum + (s.service?.duration || 0), 0) || 30;
+        const appEnd = appStart + appDur;
+        return (slotStart < appEnd && slotEnd > appStart);
+      });
+
+      if (hasConflict) {
+        throw new Error('Desculpe, este horário acabou de ser reservado por outra pessoa. Por favor, selecione outro horário.');
+      }
+
+      // 1. Create the main appointment
+      // We still store the first service_id for backward compatibility if needed, 
+      // but the real source of truth will be the join table.
+      const { data: appointment, error: insertError } = await supabase
         .from('appointments')
         .insert([{
           client_id: user.id,
           barber_id: bookingState.barber.id,
-          service_id: bookingState.service.id,
+          service_id: bookingState.services[0].id, // Primary service
           appointment_date: bookingState.date,
           appointment_time: bookingState.time,
-          value: bookingState.service.price,
+          value: totalPrice,
           status: 'confirmed'
         }])
         .select()
@@ -44,7 +81,39 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
 
       if (insertError) throw insertError;
 
-      if (insertError) throw insertError;
+      // 2. Insert all selected services into the join table
+      const serviceLinks = bookingState.services.map(service => ({
+        appointment_id: appointment.id,
+        service_id: service.id
+      }));
+
+      const { error: servicesError } = await supabase
+        .from('appointment_services')
+        .insert(serviceLinks);
+
+      if (servicesError) throw servicesError;
+
+      // 3. Notify the Barber
+      const serviceNames = bookingState.services.map(s => s.name).join(' + ');
+      const formattedDate = new Date(bookingState.date + 'T12:00:00').toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit'
+      });
+
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert([{
+          user_id: bookingState.barber.id,
+          appointment_id: appointment.id,
+          type: 'confirmation',
+          title: 'Novo Agendamento',
+          content: `${user.name} agendou ${serviceNames} para ${formattedDate} às ${bookingState.time}.`,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (notifError) {
+        console.error('Error sending notification to barber:', notifError);
+      }
 
       navigate('/client');
     } catch (err: any) {
@@ -55,7 +124,7 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
     }
   };
 
-  if (!bookingState.service || !bookingState.barber || !bookingState.date || !bookingState.time) {
+  if (bookingState.services.length === 0 || !bookingState.barber || !bookingState.date || !bookingState.time) {
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-background-dark h-screen text-white text-center">
         <span className="material-symbols-outlined text-6xl text-primary/20 mb-4">warning</span>
@@ -81,17 +150,28 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
         <div className="w-10"></div>
       </header>
 
-      <main className="p-6 space-y-6 flex-1">
+      <main className="p-6 space-y-4 flex-1 overflow-y-auto no-scrollbar pb-40">
         <div className="bg-surface-dark p-6 rounded-3xl border border-white/5 shadow-soft">
-          <p className="text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-3">Relevante</p>
-          <div className="flex items-start gap-4">
-            <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-3xl">content_cut</span>
-            </div>
-            <div>
-              <h3 className="text-white text-xl font-black">{bookingState.service.name}</h3>
-              <p className="text-text-muted text-sm mt-1 font-medium">{bookingState.service.duration} minutos</p>
-            </div>
+          <p className="text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-4">Serviços Selecionados</p>
+          <div className="space-y-4">
+            {bookingState.services.map((service, idx) => (
+              <div key={idx} className="flex items-center gap-4">
+                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <span className="material-symbols-outlined text-2xl">content_cut</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white text-sm font-black truncate">{service.name}</h3>
+                  <p className="text-text-muted text-[10px] font-bold uppercase">{service.duration} minutos</p>
+                </div>
+                <div className="text-white font-bold text-sm">
+                  R$ {service.price.toFixed(2).replace('.', ',')}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between">
+            <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">Duração Total</span>
+            <span className="text-white font-bold text-sm">{totalDuration} minutos</span>
           </div>
         </div>
 
@@ -121,7 +201,7 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
 
         <div className="bg-primary/5 border border-primary/10 p-6 rounded-3xl flex items-center justify-between">
           <span className="text-white/60 font-bold">Total a pagar</span>
-          <span className="text-primary text-2xl font-black">R$ {bookingState.service.price.toFixed(2).replace('.', ',')}</span>
+          <span className="text-primary text-xl font-black">{formatCurrency(totalPrice)}</span>
         </div>
 
         {error && (
@@ -132,7 +212,7 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
         )}
       </main>
 
-      <div className="sticky bottom-0 left-0 right-0 p-6 bg-background-dark/80 backdrop-blur-xl border-t border-white/5 max-w-md mx-auto z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-background-dark/80 backdrop-blur-xl border-t border-white/5 max-w-md mx-auto z-20 rounded-t-[2rem]">
         <button
           onClick={handleFinalize}
           disabled={loading}

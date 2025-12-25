@@ -45,13 +45,24 @@ const BarberSidebar: React.FC<BarberSidebarProps> = ({ isOpen, onClose, user, on
                         <div className="relative">
                             <div
                                 className="size-14 rounded-2xl bg-cover bg-center ring-2 ring-primary/20 shadow-lg"
-                                style={{ backgroundImage: `url("${user.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCtqFd9kXRuriwN1cEPJaLyCboKwOwEwYjCdnrh35EOMmO0K3JKVVbpW66iZGHPzh598PLFB_y1nBw3sG6zX_4nJOtypefF6mYbHPW2Pg_LFQetDTc2AxMf_O9PauILygQ27bLqnutTzBF_mAvkB4yDMoSSo4yI9g7JmuB_hCVaX8MJ82ULLJLQoyaNLU4dx-IsgTS0eEmZqUcJEymS2id4o5ItpuaMFNpjDVhyXyxLiGknlEAqs5-Odpsxsh2CZ0J2MJ84KRxboMc'}")` }}
+                                style={{
+                                    backgroundImage: `url("${user.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCtqFd9kXRuriwN1cEPJaLyCboKwOwEwYjCdnrh35EOMmO0K3JKVVbpW66iZGHPzh598PLFB_y1nBw3sG6zX_4nJOtypefF6mYbHPW2Pg_LFQetDTc2AxMf_O9PauILygQ27bLqnutTzBF_mAvkB4yDMoSSo4yI9g7JmuB_hCVaX8MJ82ULLJLQoyaNLU4dx-IsgTS0eEmZqUcJEymS2id4o5ItpuaMFNpjDVhyXyxLiGknlEAqs5-Odpsxsh2CZ0J2MJ84KRxboMc'}")`,
+                                    backgroundPosition: `${user.avatar_pos_x ?? 50}% ${user.avatar_pos_y ?? 50}%`,
+                                    backgroundSize: `${user.avatar_zoom ?? 100}%`
+                                }}
                             ></div>
                             <div className="absolute -bottom-1 -right-1 size-4 bg-green-500 border-2 border-surface-darker rounded-full"></div>
                         </div>
                         <div className="flex flex-col">
                             <h2 className="text-white font-black text-xs uppercase tracking-widest opacity-40">Barbeiro</h2>
-                            <p className="text-white font-black text-lg leading-tight truncate max-w-[140px]">{user.name.split(' ')[0]}</p>
+                            <p className="text-white font-black text-lg leading-tight truncate max-w-[140px] mb-2">{user.name.split(' ')[0]}</p>
+                            <button
+                                onClick={() => { navigate('/barber/profile'); onClose(); }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-300 w-fit"
+                            >
+                                <span className="material-symbols-outlined text-sm">edit</span>
+                                <span className="text-[10px] font-black uppercase tracking-wider">Editar Perfil</span>
+                            </button>
                         </div>
                     </div>
                 </div>

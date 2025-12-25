@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Service } from '../types.ts';
+import { formatCurrency } from '../utils.ts';
 import { supabase } from '../supabase.ts';
 
 interface ServiceSelectionProps {
@@ -12,7 +13,6 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
   const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
 
   useEffect(() => {
     fetchServices();
@@ -27,11 +27,10 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
 
       if (error) throw error;
 
-      // Map DB numeric price to number
       const mappedServices = data.map((s: any) => ({
         ...s,
         price: parseFloat(s.price),
-        icon: s.name.toLowerCase().includes('barba') ? 'content_cut' : 'face' // Simple heuristic for icons
+        icon: getServiceIcon(s.name)
       }));
       setServices(mappedServices);
     } catch (err) {
@@ -41,19 +40,38 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
     }
   };
 
-  const filteredServices = selectedCategory === 'Todos'
-    ? services
-    : services.filter(s => s.name.toLowerCase().includes(selectedCategory.toLowerCase()));
+  const getServiceIcon = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('corte')) return 'content_cut';
+    if (lowerName.includes('barba')) return 'face';
+    if (lowerName.includes('sobrancelha')) return 'visibility';
+    if (lowerName.includes('combo')) return 'diamond';
+    return 'content_cut';
+  };
+
 
   const handleSelect = (service: Service) => {
-    setBookingState({ ...bookingState, service });
+    const isAlreadySelected = bookingState.services.some((s: Service) => s.id === service.id);
+    let newSelectedServices;
+
+    if (isAlreadySelected) {
+      newSelectedServices = bookingState.services.filter((s: Service) => s.id !== service.id);
+    } else {
+      newSelectedServices = [...bookingState.services, service];
+    }
+
+    setBookingState({ ...bookingState, services: newSelectedServices });
   };
 
   const handleContinue = () => {
-    if (bookingState.service) {
+    if (bookingState.services.length > 0) {
       navigate('/client/book/schedule');
     }
   };
+
+  const totalSelected = bookingState.services.length;
+  const totalPrice = bookingState.services.reduce((acc: number, s: Service) => acc + s.price, 0);
+  const totalDuration = bookingState.services.reduce((acc: number, s: Service) => acc + s.duration, 0);
 
   if (loading) {
     return (
@@ -64,7 +82,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
   }
 
   return (
-    <div className="relative flex h-full min-h-screen w-full flex-col pb-24 max-w-md mx-auto bg-background-dark">
+    <div className="relative flex h-full min-h-screen w-full flex-col pb-32 max-w-md mx-auto bg-background-dark">
       <div className="sticky top-0 z-20 flex items-center bg-background-dark/95 backdrop-blur-md p-4 pb-2 justify-between border-b border-white/5">
         <div
           onClick={() => navigate('/client')}
@@ -73,42 +91,34 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
           <span className="material-symbols-outlined text-2xl">arrow_back</span>
         </div>
         <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Nossos Serviços</h2>
-        <div className="text-white flex size-12 shrink-0 items-center justify-center rounded-full active:bg-white/10 transition-colors cursor-pointer">
-          <span className="material-symbols-outlined text-2xl">account_circle</span>
-        </div>
+        <div className="w-12 h-12"></div>
       </div>
 
       <div className="px-5 pt-6 pb-2">
         <h1 className="text-white tracking-tight text-3xl font-extrabold leading-tight">Escolha o seu <br /><span className="text-primary">estilo premium</span></h1>
+        <p className="text-white/40 text-sm mt-2">Você pode selecionar mais de um serviço.</p>
       </div>
 
-      <div className="flex gap-3 px-5 py-4 overflow-x-auto no-scrollbar w-full">
-        {['Todos', 'Cabelo', 'Barba'].map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full px-5 transition-transform active:scale-95 ${selectedCategory === cat ? 'bg-primary shadow-glow' : 'bg-surface-highlight border border-white/5'}`}
-          >
-            <span className={`${selectedCategory === cat ? 'text-background-dark font-bold' : 'text-white/80 font-medium'} text-sm leading-normal`}>
-              {cat}
-            </span>
-          </button>
-        ))}
-      </div>
 
-      <div className="flex flex-col gap-4 px-4 mt-2">
-        {filteredServices.length > 0 ? filteredServices.map(service => {
-          const isSelected = bookingState.service?.id === service.id;
+      <div className="flex flex-col gap-4 px-4 mt-6">
+        {services.length > 0 ? services.map(service => {
+          const isSelected = bookingState.services.some((s: Service) => s.id === service.id);
           return (
             <div
               key={service.id}
               onClick={() => handleSelect(service)}
-              className={`group relative flex flex-col gap-3 rounded-2xl bg-surface-dark p-4 shadow-soft border transition-all duration-200 cursor-pointer ${isSelected ? 'border-primary ring-1 ring-primary/20 shadow-glow' : 'border-white/5 active:border-primary/50'}`}
+              className={`group relative flex flex-col gap-3 rounded-2xl bg-surface-dark p-4 shadow-soft border transition-all duration-300 cursor-pointer ${isSelected ? 'border-primary ring-1 ring-primary/20 shadow-glow' : 'border-white/5 active:border-primary/50'}`}
             >
+              {isSelected && (
+                <div className="absolute top-3 right-3">
+                  <span className="material-symbols-outlined text-primary text-xl">check_circle</span>
+                </div>
+              )}
+
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-4">
-                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-colors ${isSelected ? 'bg-primary text-background-dark' : 'bg-background-dark text-primary border border-white/5'}`}>
-                    <span className="material-symbols-outlined text-[28px]">{(service as any).icon || 'content_cut'}</span>
+                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl transition-all duration-300 ${isSelected ? 'bg-primary text-background-dark scale-105' : 'bg-background-dark text-primary border border-white/5'}`}>
+                    <span className="material-symbols-outlined text-[28px]">{service.icon || 'content_cut'}</span>
                   </div>
                   <div className="flex flex-col">
                     <p className="text-white text-lg font-bold leading-snug">{service.name}</p>
@@ -119,28 +129,35 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-1 pt-3 border-t border-white/5">
-                <p className={`${isSelected ? 'text-white' : 'text-primary'} font-bold text-lg`}>
-                  R$ {service.price.toFixed(2).replace('.', ',')}
-                </p>
-              </div>
+              <p className={`${isSelected ? 'text-white' : 'text-primary'} font-black text-lg`}>
+                {formatCurrency(service.price)}
+              </p>
             </div>
           );
         }) : (
           <div className="text-center py-20">
             <span className="material-symbols-outlined text-6xl text-white/10 mb-4">content_cut</span>
-            <p className="text-white/40">Nenhum serviço disponível no momento.</p>
+            <p className="text-white/40">Nenhum serviço encontrado.</p>
           </div>
         )}
       </div>
 
-      {bookingState.service && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 bg-surface-dark/95 backdrop-blur-xl border-t border-white/10 p-5 pb-8 shadow-[0_-5px_30px_rgba(0,0,0,0.5)] max-w-md mx-auto">
+      {totalSelected > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-surface-dark/95 backdrop-blur-xl border-t border-white/10 p-5 pb-8 shadow-[0_-5px_30px_rgba(0,0,0,0.5)] max-w-md mx-auto rounded-t-[2rem]">
+          <div className="flex justify-between items-center mb-4 px-1">
+            <div className="flex flex-col">
+              <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">Total selecionado</span>
+              <span className="text-white font-bold">{totalSelected} {totalSelected === 1 ? 'serviço' : 'serviços'} • {totalDuration} min</span>
+            </div>
+            <div className="text-right">
+              <span className="text-primary text-2xl font-black">{formatCurrency(totalPrice)}</span>
+            </div>
+          </div>
           <button
             onClick={handleContinue}
             className="w-full h-14 bg-primary rounded-xl flex items-center justify-center gap-3 shadow-gold hover:bg-[#c9a026] active:scale-[0.98] transition-all"
           >
-            <span className="text-background-dark font-bold text-lg">Continuar</span>
+            <span className="text-background-dark font-bold text-lg uppercase tracking-tight">Continuar para horário</span>
             <span className="material-symbols-outlined text-background-dark">arrow_forward</span>
           </button>
         </div>

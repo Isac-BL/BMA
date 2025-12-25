@@ -5,6 +5,7 @@ import { supabase } from './supabase.ts';
 import Landing from './pages/Landing.tsx';
 import Login from './pages/Login.tsx';
 import Signup from './pages/Signup.tsx';
+import ClientHome from './pages/ClientHome.tsx';
 import ClientDashboard from './pages/ClientDashboard.tsx';
 import ServiceSelection from './pages/ServiceSelection.tsx';
 import ScheduleSelection from './pages/ScheduleSelection.tsx';
@@ -14,18 +15,19 @@ import BarberSchedule from './pages/BarberSchedule.tsx';
 import BarberFinances from './pages/BarberFinances.tsx';
 import ManageServices from './pages/ManageServices.tsx';
 import ManageHours from './pages/ManageHours.tsx';
+import Profile from './pages/Profile.tsx';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [bookingState, setBookingState] = useState<{
-    service: Service | null;
+    services: Service[];
     barber: User | null;
     date: string | null;
     time: string | null;
   }>({
-    service: null,
+    services: [],
     barber: null,
     date: null,
     time: null,
@@ -79,7 +81,10 @@ const App: React.FC = () => {
           name: data.name || 'Usuário',
           email: email,
           role: data.role as UserRole,
-          avatar: data.avatar_url
+          avatar: data.avatar_url,
+          avatar_pos_x: data.avatar_pos_x,
+          avatar_pos_y: data.avatar_pos_y,
+          avatar_zoom: data.avatar_zoom
         });
       }
     } catch (error) {
@@ -89,7 +94,15 @@ const App: React.FC = () => {
     }
   };
 
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await fetchProfile(session.user.id, session.user.email!);
+    }
+  };
+
   const handleLogout = async () => {
+    setUser(null);
     await supabase.auth.signOut();
   };
 
@@ -113,7 +126,9 @@ const App: React.FC = () => {
             path="/client/*"
             element={user?.role === UserRole.CLIENT ? (
               <Routes>
-                <Route index element={<ClientDashboard user={user} onLogout={handleLogout} />} />
+                <Route index element={<ClientHome user={user} onLogout={handleLogout} />} />
+                <Route path="appointments" element={<ClientDashboard user={user} onLogout={handleLogout} />} />
+                <Route path="profile" element={<Profile user={user} onUpdate={refreshProfile} />} />
                 <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} />} />
                 <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
                 <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user} />} />
@@ -130,6 +145,7 @@ const App: React.FC = () => {
                 <Route path="finances" element={<BarberFinances user={user!} onLogout={handleLogout} />} />
                 <Route path="services" element={<ManageServices user={user!} onLogout={handleLogout} />} />
                 <Route path="hours" element={<ManageHours user={user!} onLogout={handleLogout} />} />
+                <Route path="profile" element={<Profile user={user!} onUpdate={refreshProfile} onLogout={handleLogout} />} />
               </Routes>
             ) : <Navigate to="/" />}
           />
