@@ -8,9 +8,10 @@ import ClientNavigation from '../components/ClientNavigation.tsx';
 interface ClientDashboardProps {
   user: User;
   onLogout: () => void;
+  setBookingState?: (state: any) => void;
 }
 
-const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => {
+const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBookingState }) => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,8 +72,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => 
         .from('appointments')
         .select(`
           *,
-          barber:barber_id(name, avatar_url),
-          service:service_id(name, duration)
+          barber:barber_id(id, name, avatar_url, role),
+          appointment_services(service:service_id(id, name, duration, price))
         `)
         .eq('client_id', user.id)
         .order('appointment_date', { ascending: true })
@@ -87,6 +88,39 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => 
     }
   };
 
+
+  const handleCancel = async (appointmentId: string) => {
+    if (!window.confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'cancelled_client' })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+
+      // Optimistic update
+      // Notify Barber
+      const targetApp = appointments.find(a => a.id === appointmentId);
+      if (targetApp?.barber_id) {
+        await supabase.from('notifications').insert([{
+          user_id: targetApp.barber_id,
+          appointment_id: appointmentId,
+          type: 'cancellation',
+          title: 'Agendamento Cancelado',
+          content: `${user.name} cancelou o agendamento de ${targetApp.appointment_date} às ${targetApp.appointment_time}.`,
+          created_at: new Date().toISOString()
+        }]);
+      }
+      setAppointments(prev => prev.map(app =>
+        app.id === appointmentId ? { ...app, status: 'cancelled_client' } : app
+      ));
+    } catch (err) {
+      console.error('Error cancelling appointment:', err);
+      alert('Erro ao cancelar agendamento.');
+    }
+  };
 
   if (loading) {
     return (
@@ -218,8 +252,10 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => 
             <div className="space-y-4">
               {appointments.map((app) => {
                 const appDate = new Date(app.appointment_date + 'T12:00:00');
+                const canCancel = ['pending', 'confirmed'].includes(app.status);
+
                 return (
-                  <div key={app.id} className="group bg-surface-dark border border-white/5 rounded-3xl p-5 shadow-soft transition-all active:scale-[0.98] hover:border-primary/20">
+                  <div key={app.id} className="group bg-surface-dark border border-white/5 rounded-3xl p-5 shadow-soft transition-all hover:border-primary/20">
                     <div className="flex gap-5">
                       <div className="flex flex-col items-center justify-center w-16 h-16 bg-background-dark rounded-2xl border border-primary/20 shrink-0 group-hover:border-primary/50 transition-colors">
                         <span className="text-primary text-[10px] font-black uppercase tracking-widest opacity-60">
@@ -230,7 +266,9 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => 
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
-                            <p className="text-white font-black text-lg truncate leading-tight">{app.service?.name}</p>
+                            <p className="text-white font-black text-lg truncate leading-tight">
+                              {[...new Set(app.appointment_services?.map((s: any) => s.service?.name).filter(Boolean))].join(' + ') || 'Serviço'}
+                            </p>
                             <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded mt-1.5 w-fit ${STATUS_MAP[app.status]?.bg} ${STATUS_MAP[app.status]?.color}`}>
                               {STATUS_MAP[app.status]?.label}
                             </span>
@@ -249,6 +287,47 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => 
                         </div>
                       </div>
                     </div>
+                    {canCancel && (
+                      <div className="mt-4 pt-4 border-t border-white/5 flex justify-end gap-2">
+                        {setBookingState && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBookingState({
+                                barber: {
+                                  id: app.barber.id,
+                                  name: app.barber.name,
+                                  avatar: app.barber.avatar_url,
+                                  role: app.barber.role || 'BARBER', // ensure role is present
+                                  email: '' // required by type but not used logic
+                                },
+                                services: app.appointment_services?.map((as: any) => ({
+                                  id: as.service.id,
+                                  name: as.service.name,
+                                  duration: as.service.duration,
+                                  price: as.service.price
+                                })) || [],
+                                date: app.appointment_date,
+                                time: null,
+                                rescheduleAppointmentId: app.id
+                              });
+                              navigate('/client/book/schedule');
+                            }}
+                            className="px-4 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-sm">edit_calendar</span>
+                            Adiar
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCancel(app.id); }}
+                          className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-sm">cancel</span>
+                          Cancelar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

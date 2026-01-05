@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabase.ts';
 import { User, Service, WorkingHour, BlockedDay, Interval } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
+import { getAvailableSlots as calculateSlots } from '../scheduler.ts'; // Import from scheduler
+import BarberNavigation from '../components/BarberNavigation.tsx';
 
 interface ScheduleSelectionProps {
   bookingState: {
@@ -17,10 +19,12 @@ interface ScheduleSelectionProps {
 
 const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, setBookingState }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [barbers, setBarbers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [workingHoursMap, setWorkingHoursMap] = useState<Record<number, boolean>>({});
 
   const totalDuration = useMemo(() => {
     return bookingState.services.reduce((acc, s) => acc + s.duration, 0);
@@ -30,27 +34,58 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
     return bookingState.services.reduce((acc, s) => acc + s.price, 0);
   }, [bookingState.services]);
 
-  // Generate next 14 days
+  // Generate next 14 days, plus the reschedule date if provided and not within the range
   const dates = useMemo(() => {
     const d = [];
     for (let i = 0; i < 14; i++) {
       const date = new Date();
       date.setDate(date.getDate() + i);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
       d.push({
-        full: date.toISOString().split('T')[0],
+        full: dateStr,
         day: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
         num: date.getDate().toString(),
         dayOfWeek: date.getDay()
       });
     }
+    // If rescheduling, ensure the original appointment date is present
+    if (bookingState && bookingState.date) {
+      const exists = d.some(item => item.full === bookingState.date);
+      if (!exists) {
+        const date = new Date(bookingState.date);
+        d.unshift({
+          full: date.toISOString().split('T')[0],
+          day: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
+          num: date.getDate().toString(),
+          dayOfWeek: date.getDay()
+        });
+      }
+    }
     return d;
-  }, []);
+  }, [bookingState.date]);
 
-  const [selectedDate, setSelectedDate] = useState(dates[0].full);
+  const [selectedDate, setSelectedDate] = useState(bookingState?.date || dates[0].full);
+
+  // If coming from a reschedule flow, initialize the selected date from bookingState
+  useEffect(() => {
+    if (bookingState && bookingState.date) {
+      setSelectedDate(bookingState.date);
+    }
+  }, [bookingState.date]);
 
   useEffect(() => {
     fetchBarbers();
   }, []);
+
+  useEffect(() => {
+    if (bookingState.barber) {
+      fetchWorkingHours(bookingState.barber.id);
+    }
+  }, [bookingState.barber]);
 
   useEffect(() => {
     if (bookingState.barber && selectedDate && bookingState.services.length > 0) {
@@ -81,6 +116,21 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
       };
     }
   }, [bookingState.barber, selectedDate, bookingState.services.length]);
+
+  const fetchWorkingHours = async (barberId: string) => {
+    const { data } = await supabase
+      .from('working_hours')
+      .select('day_of_week, active, intervals, start_time, end_time')
+      .eq('barber_id', barberId);
+
+    const map: Record<number, boolean> = {};
+    if (data) {
+      data.forEach(wh => {
+        map[wh.day_of_week] = wh.active ?? true;
+      });
+    }
+    setWorkingHoursMap(map);
+  };
 
   const fetchBarbers = async () => {
     try {
@@ -119,19 +169,25 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
       const jsDay = new Date(selectedDate + 'T12:00:00').getDay();
       const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
 
+      const appointmentsQuery = supabase.from('appointments')
+        .select(`
+          id,
+          appointment_time,
+          status,
+          appointment_services(service:service_id(duration))
+        `)
+        .eq('barber_id', barberId)
+        .eq('appointment_date', selectedDate)
+        .not('status', 'ilike', 'cancelled%');
+
+      if (bookingState.rescheduleAppointmentId) {
+        appointmentsQuery.neq('id', bookingState.rescheduleAppointmentId);
+      }
+
       const [whRes, blockedRes, appRes] = await Promise.all([
         supabase.from('working_hours').select('*').eq('barber_id', barberId).eq('day_of_week', dayOfWeek).single(),
         supabase.from('blocked_days').select('*').eq('barber_id', barberId).eq('blocked_date', selectedDate),
-        supabase.from('appointments')
-          .select(`
-            id,
-            appointment_time,
-            status,
-            appointment_services(service:service_id(duration))
-          `)
-          .eq('barber_id', barberId)
-          .eq('appointment_date', selectedDate)
-          .not('status', 'ilike', 'cancelled%')
+        appointmentsQuery
       ]);
 
       if (blockedRes.data?.length || whRes.error || !whRes.data) {
@@ -139,68 +195,52 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
         return;
       }
 
-      const { start_time, end_time, intervals } = whRes.data;
-
       const existingAppointments = (appRes.data || []).map(app => {
-        let totalAppDuration = (app.appointment_services as any[])?.reduce(
-          (sum, s) => sum + (s.service?.duration || 0),
-          0
-        ) || 30;
+        let totalAppDuration = 30;
+        const services = app.appointment_services;
+
+        if (Array.isArray(services)) {
+          totalAppDuration = services.reduce(
+            (sum: number, s: any) => sum + (s.service?.duration || 0),
+            0
+          ) || 30;
+        }
 
         return {
-          id: app.id,
-          time: app.appointment_time,
-          duration: totalAppDuration
+          appointment_time: app.appointment_time,
+          duration: totalAppDuration,
+          status: app.status
         };
       });
 
-      const toMin = (t: string) => {
-        const [h, m] = t.split(':').map(Number);
-        return h * 60 + m;
-      };
+      // Pass the workingHours data (which includes active) to the scheduler
+      const slots = calculateSlots(
+        selectedDate,
+        totalDuration,
+        whRes.data,
 
-      const toStr = (m: number) => {
-        const h = Math.floor(m / 60);
-        const min = m % 60;
-        return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-      };
+        existingAppointments,
+        blockedRes.data || []
+      );
 
-      const startMin = toMin(start_time);
-      const endMin = toMin(end_time);
-      const durationMin = totalDuration;
-
-      const slots = [];
+      // Filter past slots if today
       const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-      const isToday = selectedDate === todayStr;
-      const currentMin = now.getHours() * 60 + now.getMinutes();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayLocal = `${year}-${month}-${day}`;
 
-      for (let m = startMin; m <= endMin - durationMin; m += 30) {
-        const slotStart = m;
-        const slotEnd = m + durationMin;
-
-        if (isToday && slotStart < currentMin + 5) continue;
-
-        const isWithinWorkingInterval = (intervals as any[])?.some(inv => {
-          const invStart = toMin(inv.start);
-          const invEnd = toMin(inv.end);
-          return (slotStart >= invStart && slotEnd <= invEnd);
+      if (selectedDate === todayLocal) {
+        const currentMin = now.getHours() * 60 + now.getMinutes();
+        const filtered = slots.filter(s => {
+          const [h, m] = s.split(':').map(Number);
+          return (h * 60 + m) >= currentMin; // Real-time onwards (no buffer for barbers/clients)
         });
-
-        if (!isWithinWorkingInterval) continue;
-
-        const hasConflict = existingAppointments.some(app => {
-          const appStart = toMin(app.time);
-          const appEnd = appStart + app.duration;
-          return (slotStart < appEnd && slotEnd > appStart);
-        });
-
-        if (hasConflict) continue;
-
-        slots.push(toStr(slotStart));
+        setAvailableSlots(filtered);
+      } else {
+        setAvailableSlots(slots);
       }
 
-      setAvailableSlots(slots);
     } catch (err) {
       console.error('Error calculating availability:', err);
       setAvailableSlots([]);
@@ -219,7 +259,10 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
 
   const handleContinue = () => {
     if (bookingState.barber && bookingState.time && bookingState.date) {
-      navigate('/client/book/confirm');
+      const isBarber = bookingState.barber.role === 'BARBER' || barbers.find(b => b.id === bookingState.barber.id)?.role === 'BARBER';
+      // Use the context of the current route instead of a hardcoded /client/
+      const basePath = location.pathname.includes('/barber/') ? '/barber/book' : '/client/book';
+      navigate(`${basePath}/confirm`);
     }
   };
 
@@ -252,7 +295,7 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
       {/* Header */}
       <div className="sticky top-0 z-50 flex items-center bg-background-dark/95 backdrop-blur-md p-4 pb-2 justify-between border-b border-white/5">
         <button
-          onClick={() => navigate('/client/book/services')}
+          onClick={() => navigate(-1)}
           className="size-11 flex items-center justify-center rounded-2xl bg-white/5 text-white/60 hover:text-white transition-all active:scale-95"
         >
           <span className="material-symbols-outlined">arrow_back_ios_new</span>
@@ -316,14 +359,26 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
             {dates.map((d, idx) => {
               const isSelected = selectedDate === d.full;
+              const jsDay = d.dayOfWeek;
+              const dbDay = jsDay === 0 ? 6 : jsDay - 1;
+              const isActive = workingHoursMap[dbDay] !== false; // Default to true if not loaded yet or undefined
+
               return (
                 <button
                   key={idx}
                   onClick={() => {
-                    setSelectedDate(d.full);
-                    setBookingState({ ...bookingState, time: null });
+                    if (isActive) {
+                      setSelectedDate(d.full);
+                      setBookingState({ ...bookingState, time: null });
+                    }
                   }}
-                  className={`flex flex-col items-center justify-center min-w-[70px] h-24 rounded-[2rem] transition-all duration-300 ${isSelected ? 'bg-primary text-background-dark shadow-gold scale-105 border-transparent' : 'bg-surface-dark text-white border border-white/5 hover:bg-surface-highlight opacity-50'}`}
+                  disabled={!isActive}
+                  className={`flex flex-col items-center justify-center min-w-[70px] h-24 rounded-[2rem] transition-all duration-300 ${!isActive
+                    ? 'opacity-20 cursor-not-allowed grayscale bg-surface-dark border border-white/5'
+                    : isSelected
+                      ? 'bg-primary text-background-dark shadow-gold scale-105 border-transparent'
+                      : 'bg-surface-dark text-white border border-white/5 hover:bg-surface-highlight opacity-50'
+                    }`}
                 >
                   <span className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'text-background-dark/60' : 'text-white/40'}`}>{d.day}</span>
                   <span className="text-2xl font-black">{d.num}</span>
@@ -449,6 +504,7 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
           </div>
         </div>
       </footer>
+      {bookingState.barber?.role === 'BARBER' && <BarberNavigation />}
     </div>
   );
 };

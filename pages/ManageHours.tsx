@@ -60,20 +60,44 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
       const { active, intervals } = workingHours[day];
       const dayIndex = days.indexOf(day);
 
-      // Determine overall start/end for the day based on intervals
       const startTime = intervals.length > 0 ? intervals[0].start : '08:00';
       const endTime = intervals.length > 0 ? intervals[intervals.length - 1].end : '18:00';
 
-      const { error } = await supabase
+      // First check if it exists
+      const { data: existing } = await supabase
         .from('working_hours')
-        .upsert({
-          barber_id: user.id,
-          day_of_week: dayIndex,
-          active,
-          intervals,
-          start_time: startTime,
-          end_time: endTime
-        }, { onConflict: 'barber_id,day_of_week' });
+        .select('id')
+        .eq('barber_id', user.id)
+        .eq('day_of_week', dayIndex)
+        .maybeSingle();
+
+      let error;
+      if (existing) {
+        // Update
+        const { error: updateError } = await supabase
+          .from('working_hours')
+          .update({
+            active,
+            intervals,
+            start_time: startTime,
+            end_time: endTime
+          })
+          .eq('id', existing.id);
+        error = updateError;
+      } else {
+        // Insert
+        const { error: insertError } = await supabase
+          .from('working_hours')
+          .insert({
+            barber_id: user.id,
+            day_of_week: dayIndex,
+            active,
+            intervals,
+            start_time: startTime,
+            end_time: endTime
+          });
+        error = insertError;
+      }
 
       if (error) throw error;
       alert('Horários salvos com sucesso!');
@@ -192,12 +216,16 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
                           <button onClick={() => removeInterval(day, i)} className="text-red-500 p-1"><span className="material-symbols-outlined text-lg">delete</span></button>
                         </div>
                       ))}
-                      <div className="flex gap-2">
+                      <div>
                         <button onClick={() => addInterval(day)} className="text-[10px] font-black uppercase text-primary border border-primary/20 rounded-lg px-3 py-1.5">+ Adicionar Intervalo</button>
-                        <button onClick={() => saveHours(day)} className="text-[10px] font-black uppercase bg-primary text-background-dark rounded-lg px-4 py-1.5 shadow-gold">Salvar</button>
                       </div>
                     </div>
                   )}
+                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 flex justify-end">
+                    <button onClick={() => saveHours(day)} className={`text-[10px] font-black uppercase rounded-lg px-6 py-2 shadow-gold transition-all active:scale-95 ${workingHours[day].active ? 'bg-primary text-background-dark' : 'bg-surface-dark border border-white/10 text-white/50 hover:bg-surface-highlight hover:text-white'}`}>
+                      {workingHours[day].active ? 'Salvar Horários' : 'Confirmar Dia Fechado'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

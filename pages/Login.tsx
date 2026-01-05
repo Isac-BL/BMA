@@ -1,17 +1,27 @@
 
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '../types.ts';
 import { supabase } from '../supabase.ts';
 
 const Login: React.FC = () => {
   const { role } = useParams<{ role: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccess(location.state.message);
+      // Clean up state
+      window.history.replaceState({}, '');
+    }
+  }, [location]);
 
   const isBarber = role?.toUpperCase() === UserRole.BARBER;
 
@@ -26,7 +36,11 @@ const Login: React.FC = () => {
     });
 
     if (loginError) {
-      setError(loginError.message);
+      if (loginError.message === 'Invalid login credentials') {
+        setError('E-mail ou senha incorretos. Verifique suas credenciais.');
+      } else {
+        setError(loginError.message);
+      }
       setLoading(false);
     } else {
       // Navigate based on the current role in the URL
@@ -81,6 +95,7 @@ const Login: React.FC = () => {
         <div className="flex-1 flex flex-col px-6 py-8 gap-6">
           <form className="flex-1 flex flex-col gap-6" onSubmit={handleSubmit}>
             {error && <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm text-center">{error}</div>}
+            {success && <div className="p-3 bg-green-500/10 border border-green-500/50 rounded-lg text-green-500 text-sm text-center">{success}</div>}
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">E-mail {isBarber ? 'Profissional' : ''}</label>

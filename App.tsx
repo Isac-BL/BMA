@@ -16,6 +16,8 @@ import BarberFinances from './pages/BarberFinances.tsx';
 import ManageServices from './pages/ManageServices.tsx';
 import ManageHours from './pages/ManageHours.tsx';
 import Profile from './pages/Profile.tsx';
+import ProtectedRoute from './components/ProtectedRoute.tsx';
+import PublicRoute from './components/PublicRoute.tsx';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -26,11 +28,15 @@ const App: React.FC = () => {
     barber: User | null;
     date: string | null;
     time: string | null;
+    rescheduleAppointmentId?: string | null;
+    guestName?: string;
   }>({
     services: [],
     barber: null,
     date: null,
     time: null,
+    rescheduleAppointmentId: null,
+    guestName: '',
   });
 
   useEffect(() => {
@@ -62,6 +68,9 @@ const App: React.FC = () => {
 
   const fetchProfile = async (id: string, email: string) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const metadata = session?.user?.user_metadata || {};
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -70,18 +79,24 @@ const App: React.FC = () => {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          console.warn('Profile not found, user might be new.');
-          setUser({ id, name: 'Novo Usuário', email, role: UserRole.CLIENT });
+          console.warn('Profile not found, using session metadata.');
+          setUser({
+            id,
+            name: metadata.name || 'Novo Usuário',
+            email: email,
+            role: (metadata.role as UserRole) || UserRole.CLIENT,
+            avatar: metadata.avatar_url
+          });
         } else {
           throw error;
         }
       } else {
         setUser({
           id: data.id,
-          name: data.name || 'Usuário',
+          name: data.name || metadata.name || 'Usuário',
           email: email,
-          role: data.role as UserRole,
-          avatar: data.avatar_url,
+          role: (data.role || metadata.role) as UserRole,
+          avatar: data.avatar_url || metadata.avatar_url,
           avatar_pos_x: data.avatar_pos_x,
           avatar_pos_y: data.avatar_pos_y,
           avatar_zoom: data.avatar_zoom
@@ -118,36 +133,65 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="bg-background-dark min-h-screen text-white font-display overflow-x-hidden">
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login/:role" element={<Login />} />
-          <Route path="/signup/:role" element={<Signup />} />
+          <Route
+            path="/"
+            element={
+              <PublicRoute user={user}>
+                <Landing />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/login/:role"
+            element={
+              <PublicRoute user={user}>
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/signup/:role"
+            element={
+              <PublicRoute user={user}>
+                <Signup />
+              </PublicRoute>
+            }
+          />
 
           <Route
             path="/client/*"
-            element={user?.role === UserRole.CLIENT ? (
-              <Routes>
-                <Route index element={<ClientHome user={user} onLogout={handleLogout} />} />
-                <Route path="appointments" element={<ClientDashboard user={user} onLogout={handleLogout} />} />
-                <Route path="profile" element={<Profile user={user} onUpdate={refreshProfile} />} />
-                <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} />} />
-                <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
-                <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user} />} />
-              </Routes>
-            ) : <Navigate to="/" />}
+            element={
+              <ProtectedRoute user={user} allowedRoles={[UserRole.CLIENT, UserRole.BARBER]}>
+                <Routes>
+                  <Route index element={<ClientHome user={user} onLogout={handleLogout} />} />
+                  <Route path="appointments" element={<ClientDashboard user={user} onLogout={handleLogout} setBookingState={setBookingState} />} />
+                  <Route path="profile" element={<Profile user={user} onUpdate={refreshProfile} />} />
+                  <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} user={user!} />} />
+                  <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
+                  <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user} />} />
+                </Routes>
+              </ProtectedRoute>
+            }
           />
 
           <Route
             path="/barber/*"
-            element={user?.role === UserRole.BARBER ? (
-              <Routes>
-                <Route index element={<BarberDashboard user={user} onLogout={handleLogout} />} />
-                <Route path="schedule" element={<BarberSchedule user={user!} onLogout={handleLogout} />} />
-                <Route path="finances" element={<BarberFinances user={user!} onLogout={handleLogout} />} />
-                <Route path="services" element={<ManageServices user={user!} onLogout={handleLogout} />} />
-                <Route path="hours" element={<ManageHours user={user!} onLogout={handleLogout} />} />
-                <Route path="profile" element={<Profile user={user!} onUpdate={refreshProfile} onLogout={handleLogout} />} />
-              </Routes>
-            ) : <Navigate to="/" />}
+            element={
+              <ProtectedRoute user={user} allowedRoles={[UserRole.BARBER]}>
+                <Routes>
+                  <Route index element={<BarberDashboard user={user} onLogout={handleLogout} setBookingState={setBookingState} />} />
+                  <Route path="schedule" element={<BarberSchedule user={user!} onLogout={handleLogout} setBookingState={setBookingState} />} />
+                  <Route path="finances" element={<BarberFinances user={user!} onLogout={handleLogout} />} />
+                  <Route path="services" element={<ManageServices user={user!} onLogout={handleLogout} />} />
+                  <Route path="hours" element={<ManageHours user={user!} onLogout={handleLogout} />} />
+                  <Route path="profile" element={<Profile user={user!} onUpdate={refreshProfile} onLogout={handleLogout} />} />
+                  {/* Manual Booking Flow for Barbers */}
+                  <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} user={user!} />} />
+                  <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
+                  <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user!} />} />
+                </Routes>
+              </ProtectedRoute>
+            }
           />
 
           <Route path="*" element={<Navigate to="/" />} />

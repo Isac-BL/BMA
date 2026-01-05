@@ -208,7 +208,9 @@ const BarberFinances: React.FC<BarberFinancesProps> = ({ user, onLogout }) => {
                                             ></div>
                                             <div className="flex flex-col justify-center gap-1">
                                                 <p className="text-base font-black leading-none text-slate-900 dark:text-white">{app.client?.name || 'Cliente'}</p>
-                                                <p className="text-[10px] font-bold text-primary uppercase tracking-widest truncate max-w-[150px]">{app.display_services}</p>
+                                                <p className="text-[10px] font-bold text-primary uppercase tracking-widest truncate max-w-[150px]">
+                                                    {[...new Set(app.appointment_services?.map((as: any) => as.service?.name))].join(' + ') || 'Sem serviço'}
+                                                </p>
                                                 <p className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-tight">
                                                     {new Date(app.appointment_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}, {app.appointment_time}
                                                 </p>

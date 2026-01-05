@@ -10,6 +10,7 @@ import BarberSidebar from '../components/BarberSidebar.tsx';
 interface BarberDashboardProps {
   user: User;
   onLogout: () => void;
+  setBookingState: (state: any) => void;
 }
 
 interface DashboardStats {
@@ -21,13 +22,15 @@ interface DashboardStats {
   monthRevenue: number;
   nextAppointment: {
     clientName: string;
+    clientAvatar?: string;
     time: string;
     serviceName: string;
   } | null;
 }
 
-const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => {
+const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBookingState }) => {
   const navigate = useNavigate();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
@@ -41,6 +44,14 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
   });
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const STATUS_MAP: Record<string, { label: string, color: string, bg: string }> = {
+    pending: { label: 'PENDENTE', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+    confirmed: { label: 'CONFIRMADO', color: 'text-primary', bg: 'bg-primary/10' },
+    completed: { label: 'CONCLUÍDO', color: 'text-green-500', bg: 'bg-green-500/10' },
+    cancelled_client: { label: 'CANC. CLIENTE', color: 'text-red-400', bg: 'bg-red-400/10' },
+    cancelled_barber: { label: 'CANC. BARBEIRO', color: 'text-red-600', bg: 'bg-red-600/10' },
+  };
 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -92,6 +103,90 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
     }
   };
 
+  // Handlers for barber actions
+  const handleFinalize = async (appointmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'completed' })
+        .eq('id', appointmentId);
+      if (error) throw error;
+      // Optimistic update
+      setAppointments(prev => prev.map(app => app.id === appointmentId ? { ...app, status: 'completed' } : app));
+      // Notify Client
+      const targetApp = appointments.find(a => a.id === appointmentId);
+      if (targetApp?.client_id) {
+        const { error: notifError } = await supabase.from('notifications').insert([{
+          user_id: targetApp.client_id,
+          appointment_id: appointmentId,
+          type: 'confirmation',
+          title: 'Serviço Finalizado',
+          content: `${user.name} finalizou seu atendimento. Obrigado pela preferência!`,
+          created_at: new Date().toISOString()
+        }]);
+
+        if (notifError) console.error('Error sending completion notification to client:', notifError);
+      }
+
+      fetchDashboardData();
+    } catch (err) {
+      console.error('Error finalizing appointment:', err);
+    }
+  };
+
+  const handleCancelBarber = async (appointmentId: string) => {
+    if (!window.confirm('Tem certeza que deseja cancelar este agendamento?')) return;
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: 'cancelled_barber' })
+        .eq('id', appointmentId);
+      if (error) throw error;
+      // Optimistic update
+      setAppointments(prev => prev.map(app => app.id === appointmentId ? { ...app, status: 'cancelled_barber' } : app));
+      // Notify Client
+      const targetApp = appointments.find(a => a.id === appointmentId);
+      console.log('Target appointment for notification:', targetApp);
+
+      if (targetApp?.client_id) {
+        const { error: notifError } = await supabase.from('notifications').insert([{
+          user_id: targetApp.client_id,
+          appointment_id: appointmentId,
+          type: 'cancellation',
+          title: 'Agendamento Cancelado',
+          content: `Infelizmente seu agendamento em ${targetApp.appointment_date} às ${targetApp.appointment_time} foi cancelado pela barbearia.`,
+          created_at: new Date().toISOString()
+        }]);
+
+        if (notifError) {
+          console.error('Error sending cancellation notification to client:', notifError);
+          alert(`Agendamento cancelado, mas houve uma instabilidade ao avisar o cliente.`);
+        }
+      } else {
+        console.warn('No client_id found for notification. Guest booking?');
+      }
+
+      alert('Agendamento cancelado com sucesso!');
+      fetchDashboardData();
+    } catch (err: any) {
+      console.error('Error cancelling appointment:', err);
+      alert(`Erro ao cancelar: ${err.message || 'Tente novamente.'}`);
+    }
+  };
+
+  const handleReschedule = (app: any) => {
+    const services = app.appointment_services?.map((as: any) => as.service) || [];
+    setBookingState({
+      services,
+      barber: user,
+      date: app.appointment_date,
+      time: null,
+      rescheduleAppointmentId: app.id,
+      guestName: app.client?.name || app.client_name || ''
+    });
+    navigate('/barber/book/schedule');
+  };
+
   const fetchDashboardData = async () => {
     try {
       // Fetch appointments from the start of the current month
@@ -102,8 +197,10 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
         .from('appointments')
         .select(`
           *,
-          client:client_id(name),
-          appointment_services(service:service_id(name))
+          client:client_id(name, avatar_url),
+                    appointment_services(
+                        service:service_id(name, duration, price)
+                    )
         `)
         .eq('barber_id', user.id)
         .gte('appointment_date', startOfMonthStr)
@@ -111,6 +208,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
         .order('appointment_time', { ascending: true });
 
       if (error) throw error;
+      setAppointments(appointments || []);
 
       // Calculate Stats
       const now = new Date();
@@ -164,9 +262,10 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
         weekRevenue,
         monthRevenue,
         nextAppointment: nextAppCandidate ? {
-          clientName: nextAppCandidate.client?.name || 'Cliente',
+          clientName: nextAppCandidate.client?.name || nextAppCandidate.client_name || 'Cliente Manual',
+          clientAvatar: nextAppCandidate.client?.avatar_url,
           time: nextAppCandidate.appointment_time,
-          serviceName: nextAppCandidate.appointment_services?.map((as: any) => as.service?.name).join(' + ') || 'Serviço'
+          serviceName: [...new Set(nextAppCandidate.appointment_services?.map((as: any) => as.service?.name))].join(' + ') || 'Serviço'
         } : null
       });
 
@@ -274,9 +373,13 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
               <div className="group relative flex items-center justify-between rounded-3xl bg-white p-5 shadow-soft transition-all hover:bg-slate-50 dark:bg-surface-dark dark:hover:bg-surface-dark/60 border border-slate-100 dark:border-white/5 overflow-hidden">
                 <div className="absolute left-0 top-0 h-full w-1.5 bg-primary"></div>
                 <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                    <span className="material-symbols-outlined text-3xl">person</span>
-                  </div>
+                  {stats.nextAppointment.clientAvatar ? (
+                    <div className="size-14 rounded-2xl bg-cover bg-center border border-primary/20 shadow-glow" style={{ backgroundImage: `url(${stats.nextAppointment.clientAvatar})` }}></div>
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-3xl">person</span>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-1">
                     <h4 className="text-lg font-black leading-none text-slate-900 dark:text-white capitalize">{stats.nextAppointment.clientName}</h4>
                     <p className="text-[10px] font-bold text-primary uppercase tracking-[0.15em]">{stats.nextAppointment.serviceName}</p>
@@ -291,6 +394,85 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout }) => 
               <div className="flex flex-col items-center justify-center py-12 rounded-3xl bg-white/50 dark:bg-surface-dark/20 border border-dashed border-slate-200 dark:border-white/5">
                 <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-white/10 mb-2">event_busy</span>
                 <p className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">Sem agendamentos próximos</p>
+              </div>
+            )}
+          </section>
+
+          {/* Barber Appointments Management Section */}
+          <section className="px-4 mt-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-gray-400 mb-4 px-1 flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm text-primary">format_list_bulleted</span>
+              Próximos Agendamentos
+            </h3>
+            {appointments.length === 0 ? (
+              <div className="flex flex-col items-center py-12 rounded-3xl bg-white/50 dark:bg-surface-dark/20 border border-dashed border-slate-200 dark:border-white/5">
+                <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-white/10 mb-2">event_busy</span>
+                <p className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest text-center px-4">Nenhum agendamento ativo</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {appointments.slice(0, 10).map(app => {
+                  const canAct = !['cancelled_client', 'cancelled_barber', 'completed'].includes(app.status);
+                  return (
+                    <div key={app.id} className="group bg-white dark:bg-surface-dark border border-slate-100 dark:border-white/5 rounded-3xl p-5 shadow-soft transition-all hover:bg-slate-50 dark:hover:bg-surface-dark/60">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex gap-4">
+                          {app.client?.avatar_url ? (
+                            <div className="size-12 rounded-2xl bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${app.client.avatar_url})` }}></div>
+                          ) : (
+                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                              <span className="material-symbols-outlined">person</span>
+                            </div>
+                          )}
+                          <div className="flex flex-col justify-center">
+                            <p className="text-sm font-black text-slate-900 dark:text-white">{app.client?.name || app.client_name || 'Cliente Manual'}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">{app.appointment_time}</span>
+                              <span className="text-white/20 text-[10px]">•</span>
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">{app.appointment_date}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${STATUS_MAP[app.status]?.bg} ${STATUS_MAP[app.status]?.color}`}>
+                          {STATUS_MAP[app.status]?.label}
+                        </span>
+                      </div>
+
+                      <div className="mb-4">
+                        <p className="text-[10px] font-black text-primary uppercase tracking-[0.15em] mb-1">Serviço</p>
+                        <p className="text-xs font-bold text-slate-600 dark:text-gray-300">
+                          {[...new Set(app.appointment_services?.map((as: any) => as.service?.name).filter(Boolean))].join(' + ') || 'Serviço'}
+                        </p>
+                      </div>
+
+                      {canAct && (
+                        <div className="flex gap-2 pt-4 border-t border-slate-100 dark:border-white/5">
+                          <button
+                            onClick={() => handleFinalize(app.id)}
+                            className="flex-1 px-3 py-2.5 rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-500 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-sm">check_circle</span>
+                            Finalizar
+                          </button>
+                          <button
+                            onClick={() => handleCancelBarber(app.id)}
+                            className="flex-1 px-3 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-sm">cancel</span>
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => handleReschedule(app)}
+                            className="px-3 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-sm">schedule</span>
+                            Adiar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>

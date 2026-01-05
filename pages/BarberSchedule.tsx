@@ -8,6 +8,7 @@ import BarberSidebar from '../components/BarberSidebar.tsx';
 
 interface BarberScheduleProps {
     user: User;
+    setBookingState: (state: any) => void;
 }
 
 const MONTHS = [
@@ -25,7 +26,7 @@ const STATUS_MAP: Record<string, { label: string, color: string, bg: string, ico
     cancelled_barber: { label: 'CANC. BARBEIRO', color: 'text-red-600', bg: 'bg-red-600/10', icon: 'block' },
 };
 
-const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> = ({ user, onLogout }) => {
+const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> = ({ user, setBookingState, onLogout }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [appointments, setAppointments] = useState<any[]>([]);
@@ -33,6 +34,7 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
     const [currentTime, setCurrentTime] = useState(new Date());
     const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
 
     // Rescheduling State
     const [isRescheduling, setIsRescheduling] = useState(false);
@@ -45,8 +47,13 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
         for (let i = 0; i < 14; i++) {
             const date = new Date();
             date.setDate(date.getDate() + i);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const dayNum = String(date.getDate()).padStart(2, '0');
+            const fullLocal = `${year}-${month}-${dayNum}`;
+
             d.push({
-                full: date.toISOString().split('T')[0],
+                full: fullLocal,
                 dayName: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
                 dayNum: date.getDate(),
                 month: date.getMonth(),
@@ -61,10 +68,36 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
 
     useEffect(() => {
         fetchScheduleData();
+
+        // Real-time synchronization for appointments
+        const channel = supabase
+            .channel(`realtime_schedule_${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*', // Sync everything: increments, status changes, cancellations
+                    schema: 'public',
+                    table: 'appointments',
+                    filter: `barber_id=eq.${user.id}`
+                },
+                () => {
+                    // Refetch data when any change happens in DB
+                    fetchScheduleData();
+                }
+            )
+            .subscribe();
+
         if (viewMode === 'day') {
             const interval = setInterval(() => setCurrentTime(new Date()), 60000);
-            return () => clearInterval(interval);
+            return () => {
+                clearInterval(interval);
+                supabase.removeChannel(channel);
+            };
         }
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [selectedDate, viewMode, user.id, viewDate]);
 
     const fetchScheduleData = async () => {
@@ -74,9 +107,9 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                 .from('appointments')
                 .select(`
                     *,
-                    client:client_id(name),
+                    client:client_id(name, avatar_url),
                     appointment_services(
-                        service:service_id(name, duration)
+                        service:service_id(name, duration, price)
                     )
                 `)
                 .eq('barber_id', user.id);
@@ -90,14 +123,20 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                 const endOfWeek = new Date(startOfWeek);
                 endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-                query = query.gte('appointment_date', startOfWeek.toISOString().split('T')[0])
-                    .lte('appointment_date', endOfWeek.toISOString().split('T')[0]);
+                const startStr = `${startOfWeek.getFullYear()}-${String(startOfWeek.getMonth() + 1).padStart(2, '0')}-${String(startOfWeek.getDate()).padStart(2, '0')}`;
+                const endStr = `${endOfWeek.getFullYear()}-${String(endOfWeek.getMonth() + 1).padStart(2, '0')}-${String(endOfWeek.getDate()).padStart(2, '0')}`;
+
+                query = query.gte('appointment_date', startStr)
+                    .lte('appointment_date', endStr);
             } else if (viewMode === 'month') {
                 const startOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
                 const endOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
 
-                query = query.gte('appointment_date', startOfMonth.toISOString().split('T')[0])
-                    .lte('appointment_date', endOfMonth.toISOString().split('T')[0]);
+                const startStr = `${startOfMonth.getFullYear()}-${String(startOfMonth.getMonth() + 1).padStart(2, '0')}-${String(startOfMonth.getDate()).padStart(2, '0')}`;
+                const endStr = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, '0')}-${String(endOfMonth.getDate()).padStart(2, '0')}`;
+
+                query = query.gte('appointment_date', startStr)
+                    .lte('appointment_date', endStr);
             }
 
             const { data, error } = await query.order('appointment_date').order('appointment_time');
@@ -119,6 +158,7 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
 
     const updateAppointmentStatus = async (appId: string, newStatus: string) => {
         try {
+            setSaving(true);
             const { error } = await supabase
                 .from('appointments')
                 .update({ status: newStatus })
@@ -127,10 +167,34 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
             if (error) throw error;
 
             setAppointments(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a));
+
+            // Notify Client if applicable
+            const targetApp = appointments.find(a => a.id === appId);
+            if (targetApp?.client_id) {
+                const isCancellation = newStatus.startsWith('cancelled');
+                const { error: notifError } = await supabase.from('notifications').insert([{
+                    user_id: targetApp.client_id,
+                    appointment_id: appId,
+                    type: isCancellation ? 'cancellation' : 'confirmation',
+                    title: isCancellation ? 'Agendamento Cancelado' : 'Serviço Finalizado',
+                    content: isCancellation
+                        ? `Seu agendamento em ${targetApp.appointment_date} às ${targetApp.appointment_time} foi cancelado.`
+                        : `Seu atendimento foi finalizado. Obrigado pela preferência!`,
+                    created_at: new Date().toISOString()
+                }]);
+
+                if (notifError) {
+                    console.error('Error sending status update notification to client:', notifError);
+                }
+            } else {
+                console.log('No client_id found for status update notification. Manual/guest booking.');
+            }
+
+            alert('Status atualizado com sucesso!');
             setSelectedAppointmentId(null);
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error updating status:', err);
-            alert('Erro ao atualizar status.');
+            alert(`Erro ao atualizar status: ${err.message || 'Tente novamente.'}`);
         }
     };
 
@@ -138,24 +202,44 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
         if (!selectedAppointmentId || !rescheduleDate || !rescheduleTime) return;
 
         try {
+            setSaving(true);
             const { error } = await supabase
                 .from('appointments')
                 .update({
                     appointment_date: rescheduleDate,
                     appointment_time: rescheduleTime,
-                    status: 'confirmed' // Usually reset to confirmed on reschedule
+                    status: 'confirmed'
                 })
                 .eq('id', selectedAppointmentId);
 
             if (error) throw error;
 
-            // Success! Refetch or update locally
+            // Notify Client! 
+            const targetApp = appointments.find(a => a.id === selectedAppointmentId);
+            if (targetApp?.client_id) {
+                const formattedDateNotif = new Date(rescheduleDate + 'T12:00:00').toLocaleDateString('pt-BR', {
+                    day: '2-digit', month: '2-digit'
+                });
+
+                await supabase.from('notifications').insert([{
+                    user_id: targetApp.client_id,
+                    appointment_id: selectedAppointmentId,
+                    type: 'confirmation',
+                    title: 'Horário Alterado',
+                    content: `Seu agendamento foi reagendado pela barbearia para ${formattedDateNotif} às ${rescheduleTime}.`,
+                    created_at: new Date().toISOString()
+                }]);
+            }
+
+            // Success!
             setIsRescheduling(false);
             setSelectedAppointmentId(null);
             fetchScheduleData();
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error rescheduling:', err);
-            alert('Erro ao remarcar agendamento.');
+            alert(`Erro ao remarcar: ${err.message || 'Tente novamente.'}`);
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -200,8 +284,11 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
         for (let i = 0; i < 7; i++) {
             const d = new Date(startOfWeek);
             d.setDate(startOfWeek.getDate() + i);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const dayNum = String(d.getDate()).padStart(2, '0');
             days.push({
-                full: d.toISOString().split('T')[0],
+                full: `${year}-${month}-${dayNum}`,
                 dayName: WEEK_DAYS_SHORT[i],
                 dayNum: d.getDate()
             });
@@ -317,6 +404,11 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                 )}
                                 {timelineSlots.map((time) => {
                                     const slotApps = appointments.filter(a => a.appointment_time.startsWith(time.split(':')[0]));
+                                    const [h, m] = time.split(':').map(Number);
+                                    const slotMin = h * 60 + m;
+                                    const nowMin = currentTime.getHours() * 60 + currentTime.getMinutes();
+                                    const todayStr = `${currentTime.getFullYear()}-${String(currentTime.getMonth() + 1).padStart(2, '0')}-${String(currentTime.getDate()).padStart(2, '0')}`;
+                                    const isPast = selectedDate === todayStr && slotMin < nowMin;
                                     return (
                                         <div key={time} className="flex min-h-[120px] relative border-t border-gray-100 dark:border-white/5 last:border-b-0">
                                             <div className="w-12 flex-none text-right pr-3 pt-2 text-[11px] font-black text-gray-300 dark:text-white/20">{time}</div>
@@ -331,9 +423,16 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                                                 >
                                                                     <div className="flex justify-between items-start mb-2">
                                                                         <div>
-                                                                            <h3 className={`text-white font-black text-lg leading-tight ${app.status.startsWith('cancelled') ? 'line-through decoration-red-500/50' : ''}`}>{app.client?.name}</h3>
-                                                                            +                                                                            <p className="text-primary text-xs font-bold mt-1 tracking-wider uppercase truncate">
-                                                                                {app.services_list?.map((s: any) => s.name).join(' + ') || 'Serviço'}
+                                                                            <div className="flex items-center gap-3">
+                                                                                {app.client?.avatar_url && (
+                                                                                    <div className="size-8 rounded-full bg-cover bg-center border border-white/10 shrink-0" style={{ backgroundImage: `url(${app.client.avatar_url})` }}></div>
+                                                                                )}
+                                                                                <h3 className={`text-white font-black text-lg leading-tight ${app.status.startsWith('cancelled') ? 'line-through decoration-red-500/50' : ''}`}>
+                                                                                    {app.client?.name || app.client_name || 'Cliente Manual'}
+                                                                                </h3>
+                                                                            </div>
+                                                                            <p className="text-primary text-xs font-bold mt-1 tracking-wider uppercase truncate">
+                                                                                {[...new Set(app.appointment_services?.map((as: any) => as.service?.name))].join(' + ') || 'Serviço'}
                                                                             </p>
                                                                         </div>
                                                                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${STATUS_MAP[app.status]?.bg} ${STATUS_MAP[app.status]?.color}`}>
@@ -348,11 +447,27 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                                             </div>
                                                         ))}
                                                     </div>
-                                                ) : (
-                                                    <button className="w-full h-full min-h-[80px] border-2 border-dashed border-gray-100 dark:border-white/5 hover:border-primary/50 rounded-2xl flex items-center justify-center gap-2 group transition-all hover:bg-primary/5">
+                                                ) : !isPast ? (
+                                                    <button
+                                                        onClick={() => {
+                                                            setBookingState({
+                                                                services: [],
+                                                                barber: user,
+                                                                date: selectedDate,
+                                                                time: time,
+                                                                guestName: ''
+                                                            });
+                                                            navigate('/barber/book/services');
+                                                        }}
+                                                        className="w-full h-full min-h-[80px] border-2 border-dashed border-gray-100 dark:border-white/5 hover:border-primary/50 rounded-2xl flex items-center justify-center gap-2 group transition-all hover:bg-primary/5"
+                                                    >
                                                         <span className="material-symbols-outlined text-gray-300 dark:text-white/10 group-hover:text-primary transition-colors">add_circle</span>
                                                         <span className="text-xs font-black uppercase tracking-widest text-gray-300 dark:text-white/10 group-hover:text-primary">Novo Agendamento</span>
                                                     </button>
+                                                ) : (
+                                                    <div className="w-full h-full min-h-[80px] flex items-center justify-center opacity-10 grayscale pointer-events-none">
+                                                        <span className="material-symbols-outlined text-gray-300">history</span>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -443,12 +558,15 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                 </span>
                                 <h2 className="text-white font-black text-2xl tracking-tight">{selectedAppointment?.client?.name}</h2>
                                 <div className="mt-2 space-y-1">
-                                    {selectedAppointment?.services_list?.map((s: any, idx: number) => (
-                                        <p key={idx} className="text-primary font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
-                                            <span className="material-symbols-outlined text-sm">content_cut</span>
-                                            {s.name} ({s.duration} min)
-                                        </p>
-                                    ))}
+                                    {[...new Set(selectedAppointment?.services_list?.map((s: any) => s.name))].map((serviceName: string, idx: number) => {
+                                        const service = selectedAppointment.services_list.find((s: any) => s.name === serviceName);
+                                        return (
+                                            <p key={idx} className="text-primary font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-sm">content_cut</span>
+                                                {serviceName} ({service?.duration} min)
+                                            </p>
+                                        );
+                                    })}
                                 </div>
                             </div>
                             <button onClick={() => { setSelectedAppointmentId(null); setIsRescheduling(false); }} className="size-10 bg-white/5 rounded-full flex items-center justify-center text-white/40 hover:text-white transition-colors">
@@ -471,29 +589,33 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
+                                        disabled={saving}
                                         onClick={() => updateAppointmentStatus(selectedAppointmentId, 'confirmed')}
-                                        className="flex flex-col items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary p-4 rounded-2xl border border-primary/20 transition-all font-black text-xs uppercase tracking-widest"
+                                        className="flex flex-col items-center justify-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary p-4 rounded-2xl border border-primary/20 transition-all font-black text-xs uppercase tracking-widest disabled:opacity-50"
                                     >
-                                        <span className="material-symbols-outlined">verified</span>
-                                        Confirmar
+                                        <span className="material-symbols-outlined">{saving ? 'sync' : 'verified'}</span>
+                                        {saving ? 'Aguarde...' : 'Confirmar'}
                                     </button>
                                     <button
+                                        disabled={saving}
                                         onClick={() => { setIsRescheduling(true); setRescheduleDate(selectedAppointment?.appointment_date); setRescheduleTime(selectedAppointment?.appointment_time); }}
-                                        className="flex flex-col items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white p-4 rounded-2xl border border-white/10 transition-all font-black text-xs uppercase tracking-widest"
+                                        className="flex flex-col items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white p-4 rounded-2xl border border-white/10 transition-all font-black text-xs uppercase tracking-widest disabled:opacity-50"
                                     >
                                         <span className="material-symbols-outlined">event_repeat</span>
                                         Remarcar
                                     </button>
                                     <button
+                                        disabled={saving}
                                         onClick={() => updateAppointmentStatus(selectedAppointmentId, 'completed')}
-                                        className="flex flex-col items-center justify-center gap-2 bg-green-500/10 hover:bg-green-500/20 text-green-500 p-4 rounded-2xl border border-green-500/20 transition-all font-black text-xs uppercase tracking-widest"
+                                        className="flex flex-col items-center justify-center gap-2 bg-green-500/10 hover:bg-green-500/20 text-green-500 p-4 rounded-2xl border border-green-500/20 transition-all font-black text-xs uppercase tracking-widest disabled:opacity-50"
                                     >
-                                        <span className="material-symbols-outlined">check_circle</span>
+                                        <span className="material-symbols-outlined">{saving ? 'sync' : 'check_circle'}</span>
                                         Finalizar
                                     </button>
                                     <button
+                                        disabled={saving}
                                         onClick={() => updateAppointmentStatus(selectedAppointmentId, 'cancelled_barber')}
-                                        className="flex flex-col items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 p-4 rounded-2xl border border-red-500/20 transition-all font-black text-xs uppercase tracking-widest"
+                                        className="flex flex-col items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 p-4 rounded-2xl border border-red-500/20 transition-all font-black text-xs uppercase tracking-widest disabled:opacity-50"
                                     >
                                         <span className="material-symbols-outlined">block</span>
                                         Cancelar
@@ -530,8 +652,21 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                 </div>
             )}
 
+
             {/* Floating Action Button */}
-            <button className="absolute bottom-28 right-6 size-14 bg-primary hover:bg-[#c9a026] text-background-dark rounded-full shadow-gold flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50">
+            <button
+                onClick={() => {
+                    setBookingState({
+                        services: [],
+                        barber: user,
+                        date: selectedDate,
+                        time: null,
+                        guestName: ''
+                    });
+                    navigate('/barber/book/services');
+                }}
+                className="absolute bottom-28 right-6 size-14 bg-primary hover:bg-[#c9a026] text-background-dark rounded-full shadow-gold flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50"
+            >
                 <span className="material-symbols-outlined text-3xl font-black">add</span>
             </button>
 

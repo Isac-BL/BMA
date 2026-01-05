@@ -13,8 +13,8 @@ export interface Service {
 }
 
 export interface Interval {
-  id: string;
-  name: string;
+  id?: string;
+  name?: string;
   start: string; // HH:mm
   end: string;
 }
@@ -26,6 +26,7 @@ export interface WorkingHour {
   start_time: string; // HH:mm
   end_time: string;
   intervals: Interval[];
+  active?: boolean;
 }
 
 export interface BlockedDay {
@@ -44,6 +45,9 @@ export interface Appointment {
   appointment_time: string; // HH:mm
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled_client' | 'cancelled_barber';
   value: string | number;
+  client?: { name: string };
+  barber?: { name: string, avatar_url?: string, role?: string, email?: string };
+  appointment_services?: any[];
 }
 
 export interface User {

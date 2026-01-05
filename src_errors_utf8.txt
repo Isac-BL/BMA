@@ -1,0 +1,10 @@
+﻿node_modules/@supabase/auth-js/src/GoTrueClient.ts(716,7): error TS2322: Type '{ data: { weakPassword: WeakPassword; user: User; session: Session; }; error: AuthError; }' is not assignable to type 'AuthTokenResponsePassword'.
+  Type '{ data: { weakPassword: WeakPassword; user: User; session: Session; }; error: AuthError; }' is not assignable to type '{ data: { user: null; session: null; weakPassword?: null; }; error: AuthError; }'.
+    The types of 'data.user' are incompatible between these types.
+      Type 'User' is not assignable to type 'null'.
+node_modules/@supabase/auth-js/src/lib/helpers.ts(107,37): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+node_modules/@supabase/auth-js/src/lib/helpers.ts(109,29): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+node_modules/@supabase/functions-js/src/helper.ts(5,37): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+node_modules/@supabase/functions-js/src/helper.ts(7,29): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+node_modules/@supabase/realtime-js/src/RealtimeClient.ts(527,39): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+node_modules/@supabase/realtime-js/src/RealtimeClient.ts(529,31): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.

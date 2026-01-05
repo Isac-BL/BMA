@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Appointment, User, Service } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import { supabase } from '../supabase.ts';
+import BarberNavigation from '../components/BarberNavigation.tsx';
 
 interface ConfirmationProps {
   bookingState: {
@@ -10,6 +11,8 @@ interface ConfirmationProps {
     barber: User | null;
     date: string | null;
     time: string | null;
+    rescheduleAppointmentId?: string | null;
+    guestName?: string;
   };
   user: User;
 }
@@ -33,7 +36,7 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
       }
 
       // 0. Final availability check to prevent last-second conflicts
-      const { data: conflicts } = await supabase
+      let conflictQuery = supabase
         .from('appointments')
         .select(`
           appointment_time, 
@@ -42,6 +45,12 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
         .eq('barber_id', bookingState.barber.id)
         .eq('appointment_date', bookingState.date)
         .not('status', 'ilike', 'cancelled%');
+
+      if (bookingState.rescheduleAppointmentId) {
+        conflictQuery = conflictQuery.neq('id', bookingState.rescheduleAppointmentId);
+      }
+
+      const { data: conflicts } = await conflictQuery;
 
       const toMin = (t: string) => {
         const [h, m] = t.split(':').map(Number);
@@ -53,7 +62,16 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
 
       const hasConflict = (conflicts || []).some(app => {
         const appStart = toMin(app.appointment_time);
-        const appDur = (app.appointment_services as any[])?.reduce((sum, s) => sum + (s.service?.duration || 0), 0) || 30;
+
+        // Handle array or object structure for appointment_services
+        let appDur = 30;
+        if (Array.isArray(app.appointment_services)) {
+          appDur = app.appointment_services.reduce((sum: number, s: any) => sum + (s.service?.duration || 0), 0) || 30;
+        } else if (app.appointment_services) {
+          // @ts-ignore
+          appDur = app.appointment_services.service?.duration || 30;
+        }
+
         const appEnd = appStart + appDur;
         return (slotStart < appEnd && slotEnd > appStart);
       });
@@ -62,60 +80,181 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
         throw new Error('Desculpe, este horário acabou de ser reservado por outra pessoa. Por favor, selecione outro horário.');
       }
 
-      // 1. Create the main appointment
-      // We still store the first service_id for backward compatibility if needed, 
-      // but the real source of truth will be the join table.
-      const { data: appointment, error: insertError } = await supabase
-        .from('appointments')
-        .insert([{
-          client_id: user.id,
-          barber_id: bookingState.barber.id,
-          service_id: bookingState.services[0].id, // Primary service
-          appointment_date: bookingState.date,
-          appointment_time: bookingState.time,
-          value: totalPrice,
-          status: 'confirmed'
-        }])
-        .select()
-        .single();
+      // 1. If Rescheduling, Update Existing Appointment
+      if (bookingState.rescheduleAppointmentId) {
+        const { error: updateError } = await supabase
+          .from('appointments')
+          .update({
+            appointment_date: bookingState.date,
+            appointment_time: bookingState.time,
+            barber_id: bookingState.barber.id,
+            status: 'confirmed',
+            value: totalPrice
+          })
+          .eq('id', bookingState.rescheduleAppointmentId);
 
-      if (insertError) throw insertError;
+        if (updateError) throw updateError;
 
-      // 2. Insert all selected services into the join table
-      const serviceLinks = bookingState.services.map(service => ({
-        appointment_id: appointment.id,
-        service_id: service.id
-      }));
+        // We can optionally update appointment_services if we allow changing services during reschedule,
+        // but for now, "Adiar" usually implies just changing the time. 
+        // If we want to support full re-booking, we would delete old services and insert new ones.
+        // Let's assume full update to be safe and consistent with the state
 
-      const { error: servicesError } = await supabase
-        .from('appointment_services')
-        .insert(serviceLinks);
+        // Clear old services
+        const { error: deleteServicesError } = await supabase
+          .from('appointment_services')
+          .delete()
+          .eq('appointment_id', bookingState.rescheduleAppointmentId);
+        if (deleteServicesError) throw deleteServicesError;
 
-      if (servicesError) throw servicesError;
+        // Insert new services - Deduplicate by ID
+        const uniqueServices = bookingState.services.filter((s, idx, self) =>
+          self.findIndex(t => t.id === s.id) === idx
+        );
 
-      // 3. Notify the Barber
-      const serviceNames = bookingState.services.map(s => s.name).join(' + ');
-      const formattedDate = new Date(bookingState.date + 'T12:00:00').toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit'
-      });
+        const serviceLinks = uniqueServices.map(service => ({
+          appointment_id: bookingState.rescheduleAppointmentId,
+          service_id: service.id
+        }));
 
-      const { error: notifError } = await supabase
-        .from('notifications')
-        .insert([{
+        const { error: servicesError } = await supabase
+          .from('appointment_services')
+          .insert(serviceLinks);
+
+        if (servicesError) throw servicesError;
+
+        // Notification for Reschedule
+        const formattedDateNotif = new Date(bookingState.date + 'T12:00:00').toLocaleDateString('pt-BR', {
+          day: '2-digit', month: '2-digit'
+        });
+
+        const notifications = [];
+        const isBarberAction = user.role === 'BARBER';
+
+        // 1. If Barber is rescheduling, notify the Client
+        if (isBarberAction) {
+          // Find client_id if it exists (for non-guest appointments)
+          const { data: appData } = await supabase.from('appointments').select('client_id, client_name').eq('id', bookingState.rescheduleAppointmentId).single();
+
+          if (appData?.client_id) {
+            notifications.push({
+              user_id: appData.client_id,
+              appointment_id: bookingState.rescheduleAppointmentId,
+              type: 'confirmation',
+              title: 'Horário Alterado',
+              content: `Seu agendamento foi reagendado pela barbearia para ${formattedDateNotif} às ${bookingState.time}.`,
+              created_at: new Date().toISOString()
+            });
+          }
+        } else {
+          // 2. If Client is rescheduling, notify the Barber
+          notifications.push({
+            user_id: bookingState.barber.id,
+            appointment_id: bookingState.rescheduleAppointmentId,
+            type: 'confirmation',
+            title: 'Agendamento Reagendado',
+            content: `${user.name} reagendou para ${formattedDateNotif} às ${bookingState.time}.`,
+            created_at: new Date().toISOString()
+          });
+
+          // Also notify the client
+          notifications.push({
+            user_id: user.id,
+            appointment_id: bookingState.rescheduleAppointmentId,
+            type: 'confirmation',
+            title: 'Agendamento Reagendado',
+            content: `Seu agendamento foi reagendado com sucesso para ${formattedDateNotif} às ${bookingState.time}.`,
+            created_at: new Date().toISOString()
+          });
+        }
+
+        if (notifications.length > 0) {
+          const { error: notifError } = await supabase.from('notifications').insert(notifications);
+          if (notifError) console.error('Error sending reschedule notifications:', notifError);
+        }
+
+      } else {
+        // CREATE NEW APPOINTMENT (Old Logic)
+        const isBarberBookingGuest = user.role === 'BARBER' && bookingState.guestName;
+
+        const { data: appointment, error: insertError } = await supabase
+          .from('appointments')
+          .insert([{
+            client_id: isBarberBookingGuest ? null : user.id,
+            client_name: isBarberBookingGuest ? bookingState.guestName : (user.role === 'BARBER' ? 'Cliente Manual' : null),
+            barber_id: bookingState.barber.id,
+            appointment_date: bookingState.date,
+            appointment_time: bookingState.time,
+            value: totalPrice,
+            status: 'confirmed'
+          }])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        // 2. Insert all selected services into the join table - Deduplicate by ID
+        const uniqueServices = bookingState.services.filter((s, idx, self) =>
+          self.findIndex(t => t.id === s.id) === idx
+        );
+
+        const serviceLinks = uniqueServices.map(service => ({
+          appointment_id: appointment.id,
+          service_id: service.id
+        }));
+
+        const { error: servicesError } = await supabase
+          .from('appointment_services')
+          .insert(serviceLinks);
+
+        if (servicesError) throw servicesError;
+
+        // 3. Notify the Barber
+        const serviceNames = [...new Set(bookingState.services.map(s => s.name))].join(' + ');
+        const formattedDateNotif = new Date(bookingState.date + 'T12:00:00').toLocaleDateString('pt-BR', {
+          day: '2-digit', month: '2-digit'
+        });
+
+        const notifications = [];
+        const isClientAction = user.role === 'CLIENT';
+
+        // barber.id should always get a notification saying "New appointment from X"
+        notifications.push({
           user_id: bookingState.barber.id,
           appointment_id: appointment.id,
           type: 'confirmation',
           title: 'Novo Agendamento',
-          content: `${user.name} agendou ${serviceNames} para ${formattedDate} às ${bookingState.time}.`,
+          content: isClientAction
+            ? `${user.name} agendou ${serviceNames} para ${formattedDateNotif} às ${bookingState.time}.`
+            : `Você agendou ${serviceNames} para ${bookingState.guestName || 'Cliente'} em ${formattedDateNotif} às ${bookingState.time}.`,
           created_at: new Date().toISOString()
-        }]);
+        });
 
-      if (notifError) {
-        console.error('Error sending notification to barber:', notifError);
+        // client side notification (only if they have a real account)
+        if (isClientAction) {
+          notifications.push({
+            user_id: user.id,
+            appointment_id: appointment.id,
+            type: 'confirmation',
+            title: 'Agendamento Confirmado',
+            content: `Seu agendamento de ${serviceNames} com ${bookingState.barber.name} para ${formattedDateNotif} às ${bookingState.time} foi realizado com sucesso!`,
+            created_at: new Date().toISOString()
+          });
+        }
+
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+
+        if (notifError) {
+          console.error('Error sending notifications during confirmation:', notifError);
+          alert(`Agendamento realizado, mas houve uma instabilidade ao enviar as notificações.`);
+        } else {
+          console.log('Notifications sent successfully:', notifications);
+        }
       }
 
-      navigate('/client');
+      navigate(user.role === 'BARBER' ? '/barber/schedule' : '/client');
     } catch (err: any) {
       console.error('Error finalizing appointment:', err);
       setError(err.message || 'Erro ao processar agendamento. Tente novamente.');
@@ -143,7 +282,7 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
   return (
     <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden max-w-md mx-auto bg-background-dark">
       <header className="flex items-center justify-between px-4 py-4 sticky top-0 z-10 bg-background-dark/95 backdrop-blur-md border-b border-white/5">
-        <button onClick={() => navigate('/client/book/schedule')} className="size-10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
+        <button onClick={() => navigate(-1)} className="size-10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
           <span className="material-symbols-outlined">arrow_back_ios</span>
         </button>
         <h1 className="text-white font-bold tracking-tight">Confirmação</h1>
@@ -199,6 +338,23 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
           </div>
         </div>
 
+        {(bookingState.guestName || user.role === 'BARBER') && (
+          <div className="bg-surface-dark p-6 rounded-3xl border border-white/5 flex items-center gap-4">
+            <div className="size-14 rounded-full bg-white/5 flex items-center justify-center border-2 border-white/5">
+              <span className="material-symbols-outlined text-white/20">person</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-1">Cliente</p>
+              <p className="text-white font-black text-lg">
+                {user.role === 'BARBER'
+                  ? (bookingState.guestName || 'Cliente Manual')
+                  : user.name
+                }
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="bg-primary/5 border border-primary/10 p-6 rounded-3xl flex items-center justify-between">
           <span className="text-white/60 font-bold">Total a pagar</span>
           <span className="text-primary text-xl font-black">{formatCurrency(totalPrice)}</span>
@@ -231,6 +387,7 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
           )}
         </button>
       </div>
+      {user.role === 'BARBER' && <BarberNavigation />}
     </div>
   );
 };

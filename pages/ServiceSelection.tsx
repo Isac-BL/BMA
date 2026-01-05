@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Service } from '../types.ts';
+import { Service, User } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import { supabase } from '../supabase.ts';
+import BarberNavigation from '../components/BarberNavigation.tsx';
 
 interface ServiceSelectionProps {
   bookingState: any;
   setBookingState: (state: any) => void;
+  user: User;
 }
 
-const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBookingState }) => {
+const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBookingState, user }) => {
   const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
 
   const handleContinue = () => {
     if (bookingState.services.length > 0) {
-      navigate('/client/book/schedule');
+      navigate(user.role === 'BARBER' ? '/barber/book/schedule' : '/client/book/schedule');
     }
   };
 
@@ -85,7 +87,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
     <div className="relative flex h-full min-h-screen w-full flex-col pb-32 max-w-md mx-auto bg-background-dark">
       <div className="sticky top-0 z-20 flex items-center bg-background-dark/95 backdrop-blur-md p-4 pb-2 justify-between border-b border-white/5">
         <div
-          onClick={() => navigate('/client')}
+          onClick={() => navigate(user.role === 'BARBER' ? '/barber/schedule' : '/client')}
           className="text-white flex size-12 shrink-0 items-center justify-center rounded-full active:bg-white/10 transition-colors cursor-pointer"
         >
           <span className="material-symbols-outlined text-2xl">arrow_back</span>
@@ -98,6 +100,24 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
         <h1 className="text-white tracking-tight text-3xl font-extrabold leading-tight">Escolha o seu <br /><span className="text-primary">estilo premium</span></h1>
         <p className="text-white/40 text-sm mt-2">Você pode selecionar mais de um serviço.</p>
       </div>
+
+      {user.role === 'BARBER' && (
+        <div className="px-5 mt-4">
+          <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 block ml-1">Nome do Cliente</label>
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <span className="material-symbols-outlined text-white/20 group-focus-within:text-primary transition-colors">person</span>
+            </div>
+            <input
+              type="text"
+              placeholder="Digite o nome do cliente..."
+              value={bookingState.guestName || ''}
+              onChange={(e) => setBookingState({ ...bookingState, guestName: e.target.value })}
+              className="w-full h-14 bg-surface-dark border border-white/5 rounded-2xl pl-12 pr-4 text-white font-bold focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-white/10"
+            />
+          </div>
+        </div>
+      )}
 
 
       <div className="flex flex-col gap-4 px-4 mt-6">
@@ -162,6 +182,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
           </button>
         </div>
       )}
+      {user.role === 'BARBER' && <BarberNavigation />}
     </div>
   );
 };

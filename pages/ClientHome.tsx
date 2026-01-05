@@ -14,10 +14,48 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
     const navigate = useNavigate();
     const [nextAppointment, setNextAppointment] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [showNotifications, setShowNotifications] = useState(false);
 
     useEffect(() => {
         fetchNextAppointment();
+        fetchNotifications();
+
+        // Subscribe to real-time notifications
+        const channel = supabase
+            .channel(`realtime_notifications_client_home_${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${user.id}`
+                },
+                (payload) => {
+                    setNotifications(prev => [payload.new, ...prev]);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [user.id]);
+
+    const fetchNotifications = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (!error) setNotifications(data || []);
+        } catch (err) {
+            console.error('Error fetching notifications:', err);
+        }
+    };
 
     const fetchNextAppointment = async () => {
         try {
@@ -25,10 +63,10 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
             const { data, error } = await supabase
                 .from('appointments')
                 .select(`
-          *,
-          barber:barber_id(name, avatar_url),
-          service:service_id(name, duration, price)
-        `)
+                    *,
+                    barber:barber_id(name, avatar_url),
+                    appointment_services(service:service_id(name, duration, price))
+                `)
                 .eq('client_id', user.id)
                 .gte('appointment_date', now)
                 .in('status', ['pending', 'confirmed'])
@@ -38,6 +76,7 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                 .single();
 
             if (!error) {
+                // Map services to match the old structure if needed or update UI
                 setNextAppointment(data);
             }
         } catch (err) {
@@ -71,8 +110,13 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                         <p className="text-primary text-[10px] font-black uppercase tracking-[0.2em] mt-2">Membro Gold</p>
                     </div>
                 </div>
-                <button onClick={onLogout} className="size-10 bg-surface-dark rounded-xl flex items-center justify-center text-white/40 hover:text-white transition-all border border-white/5 active:scale-90">
-                    <span className="material-symbols-outlined text-xl">logout</span>
+                <button onClick={() => setShowNotifications(true)} className="relative h-10 w-10 flex items-center justify-center rounded-xl bg-surface-dark text-white hover:scale-105 active:scale-95 transition-all border border-white/5 shadow-glow">
+                    <span className="material-symbols-outlined">notifications</span>
+                    {notifications.length > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-black text-background-dark ring-2 ring-background-dark">
+                            {notifications.length}
+                        </span>
+                    )}
                 </button>
             </header>
 
@@ -101,11 +145,19 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
 
                             <div className="flex items-start justify-between mb-6">
                                 <div>
-                                    <span className="text-primary font-black">{formatCurrency(nextAppointment.service?.price)}</span>
-                                    <p className="text-white font-black text-2xl truncate mb-1">{nextAppointment.service?.name}</p>
+                                    <span className="text-primary font-black">
+                                        {formatCurrency(nextAppointment.value)}
+                                    </span>
+                                    <p className="text-white font-black text-2xl truncate mb-1">
+                                        {[...new Set(nextAppointment.appointment_services?.map((as: any) => as.service?.name))].join(' + ') || 'Serviço'}
+                                    </p>
                                     <div className="flex items-center gap-2 text-primary">
-                                        <span className="material-symbols-outlined text-sm">person</span>
-                                        <p className="text-[11px] font-black uppercase tracking-widest">{nextAppointment.barber?.name}</p>
+                                        {nextAppointment.barber?.avatar_url ? (
+                                            <div className="size-5 rounded-full bg-cover bg-center border border-primary/20 shrink-0" style={{ backgroundImage: `url(${nextAppointment.barber.avatar_url})` }}></div>
+                                        ) : (
+                                            <span className="material-symbols-outlined text-sm">person</span>
+                                        )}
+                                        <p className="text-[11px] font-black uppercase tracking-widest truncate">{nextAppointment.barber?.name}</p>
                                     </div>
                                 </div>
                                 <div className="bg-primary/10 border border-primary/20 px-3 py-1 rounded-full">
@@ -181,6 +233,41 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
             </main>
 
             <ClientNavigation />
+
+            {/* Notifications Modal */}
+            {showNotifications && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-dark/80 backdrop-blur-xl animate-in fade-in duration-300">
+                    <div className="relative w-full max-w-sm h-[80vh] bg-surface-dark rounded-[2.5rem] border border-white/5 flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="p-6 flex items-center justify-between border-b border-white/5">
+                            <div>
+                                <h2 className="text-2xl font-black text-white tracking-tight">Notificações</h2>
+                                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Sua Barba em Dia</p>
+                            </div>
+                            <button onClick={() => setShowNotifications(false)} className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white transition-colors">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                            {notifications.length > 0 ? (
+                                notifications.map((notif: any) => (
+                                    <div key={notif.id} className="p-5 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <p className="text-primary text-[10px] font-black uppercase tracking-widest">{notif.title || 'Aviso'}</p>
+                                            <p className="text-white/20 text-[10px] font-bold">{new Date(notif.created_at).toLocaleDateString('pt-BR')}</p>
+                                        </div>
+                                        <p className="text-white text-sm font-bold leading-relaxed">{notif.content}</p>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center py-20 text-center">
+                                    <span className="material-symbols-outlined text-6xl text-white/5 mb-4">notifications_off</span>
+                                    <p className="text-white/20 font-black uppercase tracking-widest text-xs">Nenhuma notificação</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

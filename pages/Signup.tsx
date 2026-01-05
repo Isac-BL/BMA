@@ -46,14 +46,14 @@ const Signup: React.FC = () => {
       setError(signupError.message);
       setLoading(false);
     } else {
-      // If email confirmation is disabled, 'data.session' will be present.
-      // If it's enabled, we'll suggest a manual login or check session.
+      // Se o email confirm estiver desativado no Supabase, data.session estará presente.
       if (data.session) {
         navigate(isBarber ? '/barber' : '/client');
       } else {
-        // Fallback for when session is null but no error (usually means confirmation is still pending)
-        // However, user requested to not require it, so we'll assume they'll disable it in dashboard.
-        navigate(`/login/${role}`);
+        // Redireciona para login caso a sessão não seja iniciada automaticamente
+        navigate(`/login/${role}`, {
+          state: { message: 'Conta criada com sucesso! Você já pode fazer login.' }
+        });
       }
     }
   };

@@ -75,17 +75,40 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
         setMessage(null);
 
         try {
-            const { error } = await supabase
+            // First check if it exists
+            const { data: existing } = await supabase
                 .from('profiles')
-                .upsert({
-                    id: user.id,
-                    name,
-                    avatar_url: avatarUrl,
-                    avatar_pos_x: posX,
-                    avatar_pos_y: posY,
-                    avatar_zoom: zoom,
-                    updated_at: new Date().toISOString(),
-                });
+                .select('id')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            let error;
+            if (existing) {
+                const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update({
+                        name,
+                        avatar_url: avatarUrl,
+                        avatar_pos_x: posX,
+                        avatar_pos_y: posY,
+                        avatar_zoom: zoom,
+                    })
+                    .eq('id', user.id);
+                error = updateError;
+            } else {
+                const { error: insertError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: user.id,
+                        name,
+                        role: user.role,
+                        avatar_url: avatarUrl,
+                        avatar_pos_x: posX,
+                        avatar_pos_y: posY,
+                        avatar_zoom: zoom,
+                    });
+                error = insertError;
+            }
 
             if (error) throw error;
 
@@ -96,7 +119,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
             setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
         } catch (err: any) {
             console.error('Error updating profile:', err);
-            setMessage({ type: 'error', text: 'Erro ao salvar perfil. Tente novamente.' });
+            setMessage({
+                type: 'error',
+                text: `Erro ao salvar perfil: ${err.message || 'Tente novamente.'}`
+            });
         } finally {
             setLoading(false);
         }
