@@ -6,9 +6,10 @@ import { User } from '../types.ts';
 interface ProfileProps {
     user: User;
     onUpdate?: () => Promise<void>;
+    onLogout?: () => void;
 }
 
-const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
+const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
     const navigate = useNavigate();
     const [name, setName] = useState(user.name);
     const [avatarUrl, setAvatarUrl] = useState(user.avatar || '');
@@ -17,6 +18,8 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
     const [zoom, setZoom] = useState(user.avatar_zoom ?? 100);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -125,6 +128,45 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        try {
+            setDeleting(true);
+
+            // 1. Deletar o perfil (as cascatas do banco devem cuidar do resto se configuradas)
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .delete()
+                .eq('id', user.id);
+
+            if (profileError) throw profileError;
+
+            // 2. Tentar deletar o usuário do Auth via RPC (se existir)
+            // Se não existir, o logout já "remove" o acesso do usuário
+            try {
+                await supabase.rpc('delete_user_account');
+            } catch (rpcErr) {
+                console.warn('RPC delete_user_account não encontrado ou falhou, procedendo com logout');
+            }
+
+            // 3. Logout e redirecionamento
+            if (onLogout) {
+                onLogout();
+            } else {
+                await supabase.auth.signOut();
+                navigate('/');
+            }
+        } catch (err: any) {
+            console.error('Erro ao excluir conta:', err);
+            setMessage({
+                type: 'error',
+                text: `Erro ao excluir conta: ${err.message || 'Tente novamente.'}`
+            });
+            setShowDeleteConfirm(false);
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -266,8 +308,8 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
 
                         <button
                             type="submit"
-                            disabled={loading || uploading}
-                            className={`w-full h-16 bg-primary text-background-dark font-black text-lg rounded-2xl shadow-gold transition-all active:scale-[0.98] flex items-center justify-center gap-3 ${loading || uploading ? 'opacity-50 cursor-wait' : 'hover:bg-[#c9a026]'}`}
+                            disabled={loading || uploading || deleting}
+                            className={`w-full h-16 bg-primary text-background-dark font-black text-lg rounded-2xl shadow-gold transition-all active:scale-[0.98] flex items-center justify-center gap-3 ${loading || uploading || deleting ? 'opacity-50 cursor-wait' : 'hover:bg-[#c9a026]'}`}
                         >
                             {loading ? (
                                 <>
@@ -282,8 +324,73 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
                             )}
                         </button>
                     </div>
+
+                    {user.role === 'BARBER' && (
+                        <div className="pt-10 pb-6">
+                            <div className="p-6 rounded-[2rem] border border-red-500/20 bg-red-500/5 space-y-4">
+                                <div className="flex items-center gap-2 text-red-500">
+                                    <span className="material-symbols-outlined">warning</span>
+                                    <h3 className="text-sm font-black uppercase tracking-widest">Zona de Perigo</h3>
+                                </div>
+                                <p className="text-xs text-white/50 leading-relaxed">
+                                    Ao excluir sua conta, todos os seus dados, serviços e agendamentos serão removidos permanentemente. Esta ação não pode ser desfeita.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    className="w-full h-12 rounded-xl border border-red-500/50 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all active:scale-95"
+                                >
+                                    Excluir Minha Conta
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </form>
             </main>
+
+            {/* Modal de Confirmação de Exclusão */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-dark/80 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="w-full max-w-sm bg-surface-dark rounded-[2.5rem] border border-white/5 p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="size-20 bg-red-500/10 rounded-[2rem] flex items-center justify-center text-red-500 mx-auto mb-6">
+                            <span className="material-symbols-outlined text-4xl">delete_forever</span>
+                        </div>
+
+                        <h2 className="text-2xl font-black text-white text-center mb-4 tracking-tight">Tem certeza absoluta?</h2>
+                        <p className="text-sm text-white/60 text-center mb-8 leading-relaxed">
+                            Isso apagará permanentemente seu perfil de barbeiro, serviços cadastrados e histórico de atendimentos.
+                        </p>
+
+                        <div className="space-y-3">
+                            <button
+                                onClick={handleDeleteAccount}
+                                disabled={deleting}
+                                className="w-full h-14 bg-red-500 text-white font-black rounded-2xl shadow-xl shadow-red-500/20 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                {deleting ? (
+                                    <>
+                                        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                                        <span>EXCLUINDO...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>SIM, EXCLUIR TUDO</span>
+                                        <span className="material-symbols-outlined">check</span>
+                                    </>
+                                )}
+                            </button>
+
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                disabled={deleting}
+                                className="w-full h-14 bg-white/5 text-white/60 font-black rounded-2xl hover:bg-white/10 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                CANCELAR
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

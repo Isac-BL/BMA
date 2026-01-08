@@ -165,7 +165,7 @@ const App: React.FC = () => {
                 <Routes>
                   <Route index element={<ClientHome user={user} onLogout={handleLogout} />} />
                   <Route path="appointments" element={<ClientDashboard user={user} onLogout={handleLogout} setBookingState={setBookingState} />} />
-                  <Route path="profile" element={<Profile user={user} onUpdate={refreshProfile} />} />
+                  <Route path="profile" element={<Profile user={user} onUpdate={refreshProfile} onLogout={handleLogout} />} />
                   <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} user={user!} />} />
                   <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
                   <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user} />} />
