@@ -73,15 +73,35 @@ const Login: React.FC = () => {
 
   const isBarber = role?.toUpperCase() === UserRole.BARBER;
 
+  useEffect(() => {
+    // Connection diagnosis
+    const testConnection = async () => {
+      try {
+        const start = Date.now();
+        const { error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+        const time = Date.now() - start;
+        if (error) {
+          console.error("Supabase Connection Test Failed:", error);
+          // Don't show to user yet, just log
+        } else {
+          console.log(`Supabase Connected! Latency: ${time}ms`);
+        }
+      } catch (e) {
+        console.error("Supabase Network Error:", e);
+      }
+    };
+    testConnection();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      // Create a timeout promise that rejects after 10 seconds
+      // Increase timeout to 30s for slow connections
       const timeoutPromise = new Promise<{ data: { user: null; session: null }; error: any }>((_, reject) =>
-        setTimeout(() => reject(new Error('Tempo limite excedido. Verifique sua conexão.')), 10000)
+        setTimeout(() => reject(new Error('A conexão com o servidor está muito lenta. Verifique sua internet.')), 30000)
       );
 
       const loginPromise = supabase.auth.signInWithPassword({
