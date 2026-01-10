@@ -6,10 +6,12 @@ import ProtectedRoute from './components/ProtectedRoute.tsx';
 import PublicRoute from './components/PublicRoute.tsx';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt.tsx';
 
-// Lazy load pages for better performance
-const Landing = lazy(() => import('./pages/Landing.tsx'));
-const Login = lazy(() => import('./pages/Login.tsx'));
-const Signup = lazy(() => import('./pages/Signup.tsx'));
+// Eager load public pages for better performance/UX
+import Landing from './pages/Landing.tsx';
+import Login from './pages/Login.tsx';
+import Signup from './pages/Signup.tsx';
+
+// Lazy load protected pages
 const ClientHome = lazy(() => import('./pages/ClientHome.tsx'));
 const ClientDashboard = lazy(() => import('./pages/ClientDashboard.tsx'));
 const ServiceSelection = lazy(() => import('./pages/ServiceSelection.tsx'));
@@ -49,13 +51,28 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
+    let mounted = true;
+
     // Check current session
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        await fetchProfile(session.user.id, session.user.email!);
-      } else {
-        setLoading(false);
+      try {
+        // Add a timeout to prevent infinite loading
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null } }), 5000)
+        );
+
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
+
+        if (session && mounted) {
+          // We have a session, fetch profile
+          await fetchProfile(session.user.id, session.user.email!);
+        } else if (mounted) {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Session check failed", error);
+        if (mounted) setLoading(false);
       }
     };
 
@@ -66,11 +83,12 @@ const App: React.FC = () => {
       if (event === 'SIGNED_IN' && session) {
         await fetchProfile(session.user.id, session.user.email!);
       } else if (event === 'SIGNED_OUT') {
-        setUser(null);
+        if (mounted) setUser(null);
       }
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
