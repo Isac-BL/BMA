@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { SpeedInsights } from "@vercel/speed-insights/react"
 import { User, UserRole, Service } from './types.ts';
 import { supabase } from './supabase.ts';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
@@ -178,6 +179,7 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div className="bg-background-dark min-h-screen text-white font-display overflow-x-hidden">
+        <SpeedInsights />
         <PWAInstallPrompt />
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
