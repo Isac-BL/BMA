@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://barbearia-mateus-andrade.vercel.app/sitemap.xml

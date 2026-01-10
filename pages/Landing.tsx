@@ -1,7 +1,53 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../types.ts';
+import { usePWAInstall } from '../hooks/usePWAInstall.ts';
+
+const InstallButton = () => {
+  const { isSupported, isStandalone, install } = usePWAInstall();
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  if (isStandalone || (!isSupported && !showInstructions)) return null;
+
+  const handleClick = async () => {
+    const result = await install();
+    if (result === 'ios-instructions') {
+      setShowInstructions(true);
+    }
+  };
+
+  if (showInstructions) {
+    return (
+      <div className="text-sm text-[#b7b19e] bg-[#211d11] p-3 rounded-lg border border-[#383429] w-full max-w-xs animate-slide-up">
+        <div className="flex justify-between items-center mb-2">
+          <p className="font-bold text-white">Instalar no iPhone/iPad:</p>
+          <button onClick={() => setShowInstructions(false)}><span className="material-symbols-outlined text-sm">close</span></button>
+        </div>
+        <ol className="space-y-2 text-left">
+          <li className="flex items-center gap-2">
+            <span>1. Toque em</span>
+            <span className="material-symbols-outlined text-blue-500">ios_share</span>
+            <span>(Compartilhar)</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span>2. Selecione</span>
+            <span className="font-bold text-white border border-[#383429] bg-[#383429] px-2 py-0.5 rounded text-xs">Adicionar à Tela de Início</span>
+          </li>
+        </ol>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className="flex items-center gap-2 text-[#b7b19e] hover:text-primary transition-colors text-sm font-medium px-4 py-2 border border-[#383429] rounded-full bg-[#171611]/50 mb-4"
+    >
+      <span className="material-symbols-outlined text-lg">download</span>
+      <span>Instalar Aplicativo</span>
+    </button>
+  );
+};
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -80,6 +126,8 @@ const Landing: React.FC = () => {
             <p className="text-[10px] uppercase tracking-widest text-white font-medium">Versão 1.0.0</p>
             <div className="h-1 w-1 rounded-full bg-white"></div>
           </div>
+
+          <InstallButton />
         </div>
       </div>
     </div>

@@ -4,6 +4,54 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { UserRole } from '../types.ts';
 import { supabase } from '../supabase.ts';
 
+import { usePWAInstall } from '../hooks/usePWAInstall.ts';
+
+const InstallButton = () => {
+  const { isSupported, isStandalone, install } = usePWAInstall();
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  if (isStandalone || (!isSupported && !showInstructions)) return null;
+
+  const handleClick = async () => {
+    const result = await install();
+    if (result === 'ios-instructions') {
+      setShowInstructions(true);
+    }
+  };
+
+  if (showInstructions) {
+    return (
+      <div className="absolute top-20 left-4 right-4 z-50 text-sm text-[#b7b19e] bg-[#211d11] p-3 rounded-lg border border-[#383429] animate-slide-up shadow-xl">
+        <div className="flex justify-between items-center mb-2">
+          <p className="font-bold text-white">Instalar no iPhone/iPad:</p>
+          <button onClick={() => setShowInstructions(false)}><span className="material-symbols-outlined text-sm">close</span></button>
+        </div>
+        <ol className="space-y-2 text-left">
+          <li className="flex items-center gap-2">
+            <span>1. Toque em</span>
+            <span className="material-symbols-outlined text-blue-500">ios_share</span>
+            <span>(Compartilhar)</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <span>2. Selecione</span>
+            <span className="font-bold text-white border border-[#383429] bg-[#383429] px-2 py-0.5 rounded text-xs">Adicionar à Tela de Início</span>
+          </li>
+        </ol>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className="absolute top-4 right-4 bg-primary/10 hover:bg-primary/20 text-primary p-2 rounded-full transition-colors z-50"
+      title="Instalar Aplicativo"
+    >
+      <span className="material-symbols-outlined">download</span>
+    </button>
+  );
+};
+
 const Login: React.FC = () => {
   const { role } = useParams<{ role: string }>();
   const navigate = useNavigate();
@@ -70,7 +118,8 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="bg-background-dark text-white font-display min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-primary selection:text-background-dark">
+    <div className="bg-background-dark text-white font-display min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-primary selection:text-background-dark relative">
+      <InstallButton />
       <div className="flex-1 flex flex-col w-full max-w-md mx-auto relative z-10">
         <div className="@container w-full">
           <div className="relative w-full h-[35vh] min-h-[280px] rounded-b-3xl overflow-hidden shadow-2xl shadow-black/50">

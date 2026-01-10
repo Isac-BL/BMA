@@ -18,6 +18,7 @@ import ManageHours from './pages/ManageHours.tsx';
 import Profile from './pages/Profile.tsx';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 import PublicRoute from './components/PublicRoute.tsx';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt.tsx';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -132,6 +133,7 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div className="bg-background-dark min-h-screen text-white font-display overflow-x-hidden">
+        <PWAInstallPrompt />
         <Routes>
           <Route
             path="/"
