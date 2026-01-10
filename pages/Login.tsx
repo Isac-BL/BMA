@@ -78,21 +78,37 @@ const Login: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // Create a timeout promise that rejects after 10 seconds
+      const timeoutPromise = new Promise<{ data: { user: null; session: null }; error: any }>((_, reject) =>
+        setTimeout(() => reject(new Error('Tempo limite excedido. Verifique sua conexão.')), 10000)
+      );
 
-    if (loginError) {
-      if (loginError.message === 'Invalid login credentials') {
-        setError('E-mail ou senha incorretos. Verifique suas credenciais.');
+      const loginPromise = supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      const { error: loginError } = await Promise.race([loginPromise, timeoutPromise]);
+
+      if (loginError) {
+        if (loginError.message === 'Invalid login credentials') {
+          setError('E-mail ou senha incorretos. Verifique suas credenciais.');
+        } else {
+          setError(loginError.message || 'Erro ao fazer login.');
+        }
+        setLoading(false);
       } else {
-        setError(loginError.message);
+        // Successful login
+        // Force a small delay to ensure cookie is set (sometimes helps with race conditions) and then navigate
+        setTimeout(() => {
+          navigate(isBarber ? '/barber' : '/client');
+        }, 100);
       }
+    } catch (err: any) {
+      console.error("Login unexpected error:", err);
+      setError(err.message || 'Ocorreu um erro inesperado.');
       setLoading(false);
-    } else {
-      // Navigate based on the current role in the URL
-      navigate(isBarber ? '/barber' : '/client');
     }
   };
 

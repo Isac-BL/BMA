@@ -98,25 +98,37 @@ const App: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const metadata = session?.user?.user_metadata || {};
 
-      const { data, error } = await supabase
+      // Timeout for profile fetch
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', id)
         .single();
 
+      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout fetching profile')), 5000)
+      );
+
+      let data, error;
+      try {
+        const result = await Promise.race([profilePromise, timeoutPromise]);
+        data = result.data;
+        error = result.error;
+      } catch (e) {
+        console.warn('Profile fetch timed out, falling back to metadata');
+        error = { code: 'TIMEOUT' };
+      }
+
       if (error) {
-        if (error.code === 'PGRST116') {
-          console.warn('Profile not found, using session metadata.');
-          setUser({
-            id,
-            name: metadata.name || 'Novo Usuário',
-            email: email,
-            role: (metadata.role as UserRole) || UserRole.CLIENT,
-            avatar: metadata.avatar_url
-          });
-        } else {
-          throw error;
-        }
+        // If profile missing or timeout, use metadata
+        console.warn('Profile not found or error, using session metadata.', error);
+        setUser({
+          id,
+          name: metadata.name || 'Usuário',
+          email: email,
+          role: (metadata.role as UserRole) || UserRole.CLIENT,
+          avatar: metadata.avatar_url
+        });
       } else {
         setUser({
           id: data.id,
@@ -130,7 +142,14 @@ const App: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Error in fetchProfile:', error);
+      // Fallback
+      setUser({
+        id,
+        name: 'Usuário',
+        email: email,
+        role: UserRole.CLIENT,
+      });
     } finally {
       setLoading(false);
     }
