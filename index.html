@@ -16,26 +16,56 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
         rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet">
-    <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react-dom": "https://esm.sh/react-dom@18.3.1",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?bundle&external=react,react-dom",
-    "@google/genai": "https://esm.sh/@google/genai@0.21.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
-  }
-}
-</script>
+
     <link rel="stylesheet" href="/index.css">
 </head>
 
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <!-- Critical Rendering Path Skeleton -->
+        <style>
+            body {
+                background-color: #171611;
+                margin: 0;
+            }
+
+            .splash-screen {
+                height: 100vh;
+                width: 100vw;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                background-color: #171611;
+                color: #e1b42d;
+                font-family: sans-serif;
+            }
+
+            .splash-logo {
+                width: 80px;
+                height: 80px;
+                background-color: #171611;
+                border-radius: 50%;
+                margin-bottom: 20px;
+                position: relative;
+            }
+
+            .splash-logo::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                border: 2px solid #e1b42d;
+                border-radius: 50%;
+                opacity: 0.5;
+            }
+        </style>
+        <div class="splash-screen">
+            <div class="splash-logo"></div>
+        </div>
+    </div>
     <script type="module" src="/index.tsx"></script>
 </body>
 
