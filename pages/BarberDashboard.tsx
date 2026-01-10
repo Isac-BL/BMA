@@ -189,33 +189,48 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch appointments from the start of the current month
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
 
-      const { data: appointments, error } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          client:client_id(name, avatar_url),
-                    appointment_services(
-                        service:service_id(name, duration, price)
-                    )
-        `)
-        .eq('barber_id', user.id)
-        .gte('appointment_date', startOfMonthStr)
-        .order('appointment_date', { ascending: true })
-        .order('appointment_time', { ascending: true });
+      // Parallelize queries for better performance
+      const [statsData, listData] = await Promise.all([
+        // Query 1: Lightweight data for Stats (Revenue/Counts) - Whole Month
+        supabase
+          .from('appointments')
+          .select('id, appointment_date, appointment_time, value, status')
+          .eq('barber_id', user.id)
+          .gte('appointment_date', startOfMonthStr),
 
-      if (error) throw error;
-      setAppointments(appointments || []);
+        // Query 2: Full data for "Next Appointments" list - Today onwards only, limit 20
+        supabase
+          .from('appointments')
+          .select(`
+            *,
+            client:client_id(name, avatar_url),
+            appointment_services(
+                service:service_id(name, duration, price)
+            )
+          `)
+          .eq('barber_id', user.id)
+          .gte('appointment_date', todayStr)
+          .order('appointment_date', { ascending: true })
+          .order('appointment_time', { ascending: true })
+          .limit(20)
+      ]);
 
-      // Calculate Stats
+      if (statsData.error) throw statsData.error;
+      if (listData.error) throw listData.error;
+
+      // Set the detailed list for display
+      setAppointments(listData.data || []);
+
+      // Calculate Stats using the lightweight data
+      const allMonthAppointments = statsData.data || [];
+
       const now = new Date();
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay());
       startOfWeek.setHours(0, 0, 0, 0);
-      const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
       let todayCount = 0;
       let weekCount = 0;
@@ -223,9 +238,24 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
       let todayRevenue = 0;
       let weekRevenue = 0;
       let monthRevenue = 0;
-      let nextAppCandidate: any = null;
 
-      appointments?.forEach(app => {
+      // Find next appointment candidate from the detailed list (more accurate for display)
+      let nextAppCandidate = listData.data?.find(app => {
+        if (app.status.startsWith('cancelled')) return false;
+
+        // Exact time check
+        const appDate = app.appointment_date;
+        if (appDate < todayStr) return false;
+        if (appDate > todayStr) return true; // Future date is valid candidate
+
+        // If today, check time
+        const [h, m] = app.appointment_time.split(':').map(Number);
+        const appTime = new Date();
+        appTime.setHours(h, m, 0, 0);
+        return appTime > now;
+      });
+
+      allMonthAppointments.forEach(app => {
         const appDateOnly = new Date(app.appointment_date + 'T00:00:00');
         const isCancelled = app.status.startsWith('cancelled');
         const isEarned = app.status === 'completed';
@@ -233,14 +263,6 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
         if (app.appointment_date === todayStr && !isCancelled) {
           todayCount++;
           if (isEarned) todayRevenue += parseFloat(app.value) || 0;
-
-          // Find next appointment for today
-          const [h, m] = app.appointment_time.split(':').map(Number);
-          const appTime = new Date();
-          appTime.setHours(h, m, 0, 0);
-          if (appTime > now && !nextAppCandidate && !isCancelled) {
-            nextAppCandidate = app;
-          }
         }
 
         if (appDateOnly >= startOfWeek && !isCancelled) {
@@ -248,7 +270,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
           if (isEarned) weekRevenue += parseFloat(app.value) || 0;
         }
 
-        if (appDateOnly >= startOfMonthDate && !isCancelled) {
+        if (!isCancelled) {
           monthCount++;
           if (isEarned) monthRevenue += parseFloat(app.value) || 0;
         }
