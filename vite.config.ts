@@ -16,6 +16,27 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.png', 'logo.png'],
+        devOptions: {
+          enabled: true
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+          navigateFallback: '/index.html', // Ensure SPA routing works offline
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'supabase-api-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 // 1 day
+                },
+                networkTimeoutSeconds: 10 // Timeout faster for network
+              }
+            }
+          ]
+        },
         manifest: {
           name: 'Barbearia Mateus Andrade',
           short_name: 'BMA',
@@ -25,6 +46,7 @@ export default defineConfig(({ mode }) => {
           display: 'standalone',
           orientation: 'portrait',
           start_url: '/',
+          scope: '/',
           icons: [
             {
               src: '/logo.png',
