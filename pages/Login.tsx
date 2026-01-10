@@ -73,7 +73,13 @@ const Login: React.FC = () => {
 
   const isBarber = role?.toUpperCase() === UserRole.BARBER;
 
+  const [debugInfo, setDebugInfo] = useState<string>('');
+
   useEffect(() => {
+    // Check if env vars are loaded
+    const url = import.meta.env.VITE_SUPABASE_URL || '';
+    const hasKey = !!import.meta.env.VITE_SUPABASE_ANON_KEY;
+
     // Connection diagnosis
     const testConnection = async () => {
       try {
@@ -82,12 +88,14 @@ const Login: React.FC = () => {
         const time = Date.now() - start;
         if (error) {
           console.error("Supabase Connection Test Failed:", error);
-          // Don't show to user yet, just log
+          setDebugInfo(`Erro conexão: ${error.message} (Env: ${url ? 'OK' : 'FAIL'})`);
         } else {
           console.log(`Supabase Connected! Latency: ${time}ms`);
+          setDebugInfo(`Conexão OK: ${time}ms (Env: ${url ? 'OK' : 'FAIL'})`);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error("Supabase Network Error:", e);
+        setDebugInfo(`Erro Rede: ${e.message} (Env: ${url ? 'OK' : 'FAIL'})`);
       }
     };
     testConnection();
@@ -97,6 +105,7 @@ const Login: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setDebugInfo('');
 
     try {
       // Increase timeout to 30s for slow connections
@@ -113,14 +122,13 @@ const Login: React.FC = () => {
 
       if (loginError) {
         if (loginError.message === 'Invalid login credentials') {
-          setError('E-mail ou senha incorretos. Verifique suas credenciais.');
+          setError('E-mail ou senha incorretos.');
         } else {
           setError(loginError.message || 'Erro ao fazer login.');
+          setDebugInfo(`Erro Login: ${loginError.message}`);
         }
         setLoading(false);
       } else {
-        // Successful login
-        // Force a small delay to ensure cookie is set (sometimes helps with race conditions) and then navigate
         setTimeout(() => {
           navigate(isBarber ? '/barber' : '/client');
         }, 100);
@@ -128,6 +136,7 @@ const Login: React.FC = () => {
     } catch (err: any) {
       console.error("Login unexpected error:", err);
       setError(err.message || 'Ocorreu um erro inesperado.');
+      setDebugInfo(`Erro Inesperado: ${err.message}`);
       setLoading(false);
     }
   };
@@ -181,6 +190,11 @@ const Login: React.FC = () => {
           <form className="flex-1 flex flex-col gap-6" onSubmit={handleSubmit}>
             {error && <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm text-center">{error}</div>}
             {success && <div className="p-3 bg-green-500/10 border border-green-500/50 rounded-lg text-green-500 text-sm text-center">{success}</div>}
+            {debugInfo && (
+              <div className="text-[10px] text-gray-500 text-center font-mono break-all px-2 bg-black/20 p-1 rounded">
+                {debugInfo}
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">E-mail {isBarber ? 'Profissional' : ''}</label>
