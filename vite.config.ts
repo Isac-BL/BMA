@@ -76,6 +76,18 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'scheduler': ['./scheduler.ts'],
+            'supabase': ['@supabase/supabase-js'],
+            'ui-libs': ['@vercel/speed-insights']
+          }
+        }
+      }
     }
   };
 });
