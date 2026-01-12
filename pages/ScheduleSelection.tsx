@@ -504,7 +504,7 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
           </div>
         </div>
       </footer>
-      {bookingState.barber?.role === 'BARBER' && <BarberNavigation />}
+      {location.pathname.includes('/barber/') && <BarberNavigation />}
     </div>
   );
 };
