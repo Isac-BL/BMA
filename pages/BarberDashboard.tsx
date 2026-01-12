@@ -67,7 +67,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
     fetchNotifications();
 
     // Subscribe to real-time notifications
-    const channel = supabase
+    const notifChannel = supabase
       .channel('realtime_notifications')
       .on(
         'postgres_changes',
@@ -83,8 +83,26 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
       )
       .subscribe();
 
+    // Subscribe to real-time appointments updates
+    const appChannel = supabase
+      .channel('realtime_appointments_barber')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `barber_id=eq.${user.id}`
+        },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(notifChannel);
+      supabase.removeChannel(appChannel);
     };
   }, [user.id]);
 

@@ -94,6 +94,31 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Sync profile changes across devices
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`profile_sync:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        },
+        () => {
+          if (user.email) fetchProfile(user.id, user.email);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
   const fetchProfile = async (id: string, email: string) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();

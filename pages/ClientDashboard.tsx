@@ -30,7 +30,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
     fetchNotifications();
 
     // Subscribe to real-time notifications
-    const channel = supabase
+    const notifChannel = supabase
       .channel('realtime_notifications_client')
       .on(
         'postgres_changes',
@@ -46,8 +46,26 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
       )
       .subscribe();
 
+    // Subscribe to real-time appointments updates
+    const appChannel = supabase
+      .channel('realtime_appointments_client')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `client_id=eq.${user.id}`
+        },
+        () => {
+          fetchAppointments();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(notifChannel);
+      supabase.removeChannel(appChannel);
     };
   }, [user.id]);
 
