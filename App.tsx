@@ -193,7 +193,8 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
   };
 
-  if (loading) {
+  if (loading && window.location.hash !== '' && window.location.hash !== '#/') {
+    // Only show spinner for deep links to avoid flashing unauthorized or empty dashboards
     return (
       <div className="bg-background-dark min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary"></div>

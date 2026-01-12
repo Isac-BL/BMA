@@ -62,7 +62,7 @@ const Landing: React.FC = () => {
             <div className="absolute inset-0 bg-primary rounded-full blur-2xl opacity-20 group-hover:opacity-30 transition-opacity duration-500"></div>
             <div className="relative w-36 h-36 rounded-full border-2 border-primary/20 bg-background-dark shadow-glow flex items-center justify-center overflow-hidden">
               <div className="absolute inset-0 bg-[url('https://placeholder.pics/svg/200/221e10/f2b90d')] bg-center bg-cover opacity-10" data-alt="Subtle geometric pattern texture overlay on logo background"></div>
-              <img className="w-full h-full object-cover" data-alt="Barbearia Mateus Andrade (BMA) Monogram Logo in Gold" src="/logo.png" />
+              <img className="w-full h-full object-cover" data-alt="Barbearia Mateus Andrade (BMA) Monogram Logo in Gold" src="/logo.png" fetchPriority="high" width="144" height="144" />
             </div>
           </div>
           <div className="text-center space-y-2">
