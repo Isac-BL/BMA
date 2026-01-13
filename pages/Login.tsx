@@ -114,7 +114,14 @@ const Login: React.FC = () => {
     } catch (err: any) {
       // 4. Log the REAL error
       console.error("LOGIN ERROR REAL:", err);
-      setError(err.message || 'Ocorreu um erro inesperado.');
+
+      if (err.message?.includes("Invalid login credentials")) {
+        setError("E-mail ou senha incorretos.");
+      } else if (err.message?.includes("Tempo limite") || err.message?.includes("timeout")) {
+        setError("O servidor demorou para responder. Verifique sua conexão.");
+      } else {
+        setError(err.message || 'Erro ao fazer login.');
+      }
       setLoading(false);
     }
   };
