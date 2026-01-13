@@ -78,27 +78,26 @@ const Login: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    if (!url) {
-      setError("Erro Crítico: URL do Supabase não configurada no Vercel.");
+    // 1. Check if Supabase client is initialized
+    if (!supabase) {
+      console.error("CRITICAL: Supabase client is null. Check environment variables.");
+      setError("Erro de configuração do sistema. Contate o suporte.");
       setLoading(false);
       return;
     }
 
     try {
-      // Increase timeout to 30s for slow connections
-      const timeoutPromise = new Promise<{ data: { user: null; session: null }; error: any }>((_, reject) =>
-        setTimeout(() => reject(new Error('A conexão com o servidor está muito lenta. Tente novamente.')), 30000)
-      );
+      // 2. Debug logs
+      console.log("Attempting login with:", email);
 
-      const loginPromise = supabase.auth.signInWithPassword({
+      // 3. Direct call without custom timeout wrapper
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      const { error: loginError } = await Promise.race([loginPromise, timeoutPromise]);
-
       if (loginError) {
+        console.error("Supabase Auth Error:", loginError);
         if (loginError.message === 'Invalid login credentials') {
           setError('E-mail ou senha incorretos.');
         } else {
@@ -107,13 +106,14 @@ const Login: React.FC = () => {
         setLoading(false);
       } else {
         // Successful login
-        // Force a small delay to ensure cookie is set
+        console.log("Login successful:", data);
         setTimeout(() => {
           navigate(isBarber ? '/barber' : '/client');
         }, 100);
       }
     } catch (err: any) {
-      console.error("Login unexpected error:", err);
+      // 4. Log the REAL error
+      console.error("LOGIN ERROR REAL:", err);
       setError(err.message || 'Ocorreu um erro inesperado.');
       setLoading(false);
     }
