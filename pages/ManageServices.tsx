@@ -31,7 +31,12 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
         .order('name');
 
       if (error) throw error;
-      setServices(data || []);
+      const mappedServices = (data || []).map(s => ({
+        ...s,
+        price: s.price ? parseFloat(s.price.toString()) : 0,
+        name: s.name || 'Serviço sem nome'
+      }));
+      setServices(mappedServices);
     } catch (err) {
       console.error('Error fetching services:', err);
     } finally {
@@ -139,8 +144,8 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
           </div>
         ) : (
           services.map(service => {
-            const icon = getServiceIcon(service.name);
-            const isCombo = service.name.toLowerCase().includes('combo');
+            const icon = getServiceIcon(service.name || '');
+            const isCombo = (service.name || '').toLowerCase().includes('combo');
 
             return (
               <div
@@ -175,7 +180,7 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
                       </span>
                       <span className="h-1 w-1 rounded-full bg-[#b7b19e]/40"></span>
                       <span className="text-primary font-bold text-base">
-                        R$ {parseFloat(service.price.toString()).toFixed(2).replace('.', ',')}
+                        R$ {(service.price || 0).toFixed(2).replace('.', ',')}
                       </span>
                     </div>
                   </div>
