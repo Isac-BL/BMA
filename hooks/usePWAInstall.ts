@@ -1,17 +1,26 @@
 import { useState, useEffect } from 'react';
 
+interface BeforeInstallPromptEvent extends Event {
+    readonly platforms: string[];
+    readonly userChoice: Promise<{
+        outcome: 'accepted' | 'dismissed';
+        platform: string;
+    }>;
+    prompt(): Promise<void>;
+}
+
 // Use a singleton to hold the event, in case the hook initializes after the event fired
-let deferredPrompt: any = null;
+let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
 if (typeof window !== 'undefined') {
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
-        deferredPrompt = e;
+        deferredPrompt = e as BeforeInstallPromptEvent;
     });
 }
 
 export function usePWAInstall() {
-    const [prompt, setPrompt] = useState<any>(deferredPrompt);
+    const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(deferredPrompt);
     const [isIOS, setIsIOS] = useState(false);
     const [isStandalone, setIsStandalone] = useState(false);
     const [isSupported, setIsSupported] = useState(false);
@@ -19,7 +28,7 @@ export function usePWAInstall() {
     useEffect(() => {
         // Check if standalone
         const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
-            (window.navigator as any).standalone ||
+            ('standalone' in window.navigator && (window.navigator as any).standalone) ||
             document.referrer.includes('android-app://');
 
         setIsStandalone(isInStandaloneMode);
@@ -33,10 +42,11 @@ export function usePWAInstall() {
         setIsSupported(ios || !!deferredPrompt);
 
         // Listen for event just in case it fires later
-        const handler = (e: any) => {
+        const handler = (e: Event) => {
             e.preventDefault();
-            deferredPrompt = e;
-            setPrompt(e);
+            const promptEvent = e as BeforeInstallPromptEvent;
+            deferredPrompt = promptEvent;
+            setPrompt(promptEvent);
             setIsSupported(true);
         };
 

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Service, User } from '../types.ts';
+import { Service, User, BookingState } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import { supabase } from '../supabase.ts';
 import BarberNavigation from '../components/BarberNavigation.tsx';
 
 interface ServiceSelectionProps {
-  bookingState: any;
-  setBookingState: (state: any) => void;
+  bookingState: BookingState;
+  setBookingState: (state: BookingState) => void;
   user: User;
 }
 
@@ -29,11 +29,11 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
 
       if (error) throw error;
 
-      const mappedServices = data.map((s: any) => ({
+      const mappedServices: Service[] = (data || []).map((s) => ({
         ...s,
-        price: parseFloat(s.price),
+        price: typeof s.price === 'string' ? parseFloat(s.price) : s.price,
         icon: getServiceIcon(s.name)
-      }));
+      } as Service & { icon: string }));
       setServices(mappedServices);
     } catch (err) {
       console.error('Error fetching services:', err);

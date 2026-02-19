@@ -2,19 +2,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../supabase.ts';
-import { User, Service, WorkingHour, BlockedDay, Interval } from '../types.ts';
+import { User, Service, WorkingHour, BlockedDay, Interval, BookingState, UserRole } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import { getAvailableSlots as calculateSlots } from '../scheduler.ts'; // Import from scheduler
 import BarberNavigation from '../components/BarberNavigation.tsx';
 
 interface ScheduleSelectionProps {
-  bookingState: {
-    services: Service[];
-    barber: User | null;
-    date: string | null;
-    time: string | null;
-  };
-  setBookingState: (state: any) => void;
+  bookingState: BookingState;
+  setBookingState: (state: BookingState) => void;
 }
 
 const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, setBookingState }) => {
@@ -145,7 +140,7 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
         id: b.id,
         name: b.name,
         email: '',
-        role: b.role,
+        role: b.role as UserRole,
         avatar: b.avatar_url
       }));
       setBarbers(mapped);
@@ -196,15 +191,16 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
       }
 
       const existingAppointments = (appRes.data || []).map(app => {
-        let totalAppDuration = 30;
+        let totalAppDuration = 0;
         const services = app.appointment_services;
 
         if (Array.isArray(services)) {
-          totalAppDuration = services.reduce(
-            (sum: number, s: any) => sum + (s.service?.duration || 0),
-            0
-          ) || 30;
+          services.forEach((s) => {
+            const service = (Array.isArray(s.service) ? s.service[0] : s.service) as { duration: number } | undefined;
+            totalAppDuration += (service?.duration || 0);
+          });
         }
+        if (totalAppDuration === 0) totalAppDuration = 30;
 
         return {
           appointment_time: app.appointment_time,

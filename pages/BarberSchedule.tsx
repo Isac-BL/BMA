@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.ts';
-import { User, Appointment, Service } from '../types.ts';
+import { User, Appointment, Service, BookingState } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import BarberNavigation from '../components/BarberNavigation.tsx';
 import BarberSidebar from '../components/BarberSidebar.tsx';
 
 interface BarberScheduleProps {
     user: User;
-    setBookingState: (state: any) => void;
+    setBookingState: (state: BookingState) => void;
 }
 
 const MONTHS = [
@@ -29,7 +29,7 @@ const STATUS_MAP: Record<string, { label: string, color: string, bg: string, ico
 const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> = ({ user, setBookingState, onLogout }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    const [appointments, setAppointments] = useState<any[]>([]);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
     const [currentTime, setCurrentTime] = useState(new Date());
     const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
@@ -143,11 +143,10 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
             if (error) throw error;
 
             // Map the data to a cleaner structure
-            const mappedData = data.map(app => ({
+            const mappedData: Appointment[] = (data || []).map(app => ({
                 ...app,
-                services_list: app.appointment_services?.map((as: any) => as.service) || []
+                services_list: app.appointment_services?.map((as) => as.service) || []
             }));
-
             setAppointments(mappedData);
         } catch (err) {
             console.error('Error fetching schedule data:', err);
@@ -432,7 +431,7 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                                                                 </h3>
                                                                             </div>
                                                                             <p className="text-primary text-xs font-bold mt-1 tracking-wider uppercase truncate">
-                                                                                {[...new Set(app.appointment_services?.map((as: any) => as.service?.name))].join(' + ') || 'Serviço'}
+                                                                                {[...new Set(app.appointment_services?.map((as) => as.service?.name))].join(' + ') || 'Serviço'}
                                                                             </p>
                                                                         </div>
                                                                         <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${STATUS_MAP[app.status]?.bg} ${STATUS_MAP[app.status]?.color}`}>
@@ -558,8 +557,8 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                 </span>
                                 <h2 className="text-white font-black text-2xl tracking-tight">{selectedAppointment?.client?.name}</h2>
                                 <div className="mt-2 space-y-1">
-                                    {[...new Set(selectedAppointment?.services_list?.map((s: any) => s.name))].map((serviceName: string, idx: number) => {
-                                        const service = selectedAppointment.services_list.find((s: any) => s.name === serviceName);
+                                    {[...new Set(selectedAppointment?.services_list?.map((s) => s.name))].map((serviceName: string, idx: number) => {
+                                        const service = selectedAppointment?.services_list?.find((s) => s.name === serviceName);
                                         return (
                                             <p key={idx} className="text-primary font-bold text-[10px] uppercase tracking-widest flex items-center gap-2">
                                                 <span className="material-symbols-outlined text-sm">content_cut</span>

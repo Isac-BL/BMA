@@ -1,19 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Appointment, User, Service } from '../types.ts';
+import { Appointment, User, Service, BookingState, AppointmentService } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import { supabase } from '../supabase.ts';
 import BarberNavigation from '../components/BarberNavigation.tsx';
 
 interface ConfirmationProps {
-  bookingState: {
-    services: Service[];
-    barber: User | null;
-    date: string | null;
-    time: string | null;
-    rescheduleAppointmentId?: string | null;
-    guestName?: string;
-  };
+  bookingState: BookingState;
   user: User;
 }
 
@@ -64,13 +57,14 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
         const appStart = toMin(app.appointment_time);
 
         // Handle array or object structure for appointment_services
-        let appDur = 30;
+        let appDur = 0;
         if (Array.isArray(app.appointment_services)) {
-          appDur = app.appointment_services.reduce((sum: number, s: any) => sum + (s.service?.duration || 0), 0) || 30;
-        } else if (app.appointment_services) {
-          // @ts-ignore
-          appDur = app.appointment_services.service?.duration || 30;
+          app.appointment_services.forEach((as) => {
+            const service = (Array.isArray(as.service) ? as.service[0] : as.service) as { duration: number } | undefined;
+            appDur += (service?.duration || 0);
+          });
         }
+        if (appDur === 0) appDur = 30;
 
         const appEnd = appStart + appDur;
         return (slotStart < appEnd && slotEnd > appStart);

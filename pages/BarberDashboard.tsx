@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase.ts';
-import { User, Appointment } from '../types.ts';
+import { User, Appointment, BookingState, AppNotification } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import BarberNavigation from '../components/BarberNavigation.tsx';
 import BarberSidebar from '../components/BarberSidebar.tsx';
@@ -10,7 +10,7 @@ import BarberSidebar from '../components/BarberSidebar.tsx';
 interface BarberDashboardProps {
   user: User;
   onLogout: () => void;
-  setBookingState: (state: any) => void;
+  setBookingState: (state: BookingState) => void;
 }
 
 interface DashboardStats {
@@ -42,7 +42,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
     monthRevenue: 0,
     nextAppointment: null
   });
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const STATUS_MAP: Record<string, { label: string, color: string, bg: string }> = {
@@ -192,8 +192,8 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
     }
   };
 
-  const handleReschedule = (app: any) => {
-    const services = app.appointment_services?.map((as: any) => as.service) || [];
+  const handleReschedule = (app: Appointment) => {
+    const services = app.appointment_services?.map((as) => as.service) || [];
     setBookingState({
       services,
       barber: user,
@@ -305,7 +305,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
           clientName: nextAppCandidate.client?.name || nextAppCandidate.client_name || 'Cliente Manual',
           clientAvatar: nextAppCandidate.client?.avatar_url,
           time: nextAppCandidate.appointment_time,
-          serviceName: [...new Set(nextAppCandidate.appointment_services?.map((as: any) => as.service?.name))].join(' + ') || 'Serviço'
+          serviceName: [...new Set(nextAppCandidate.appointment_services?.map((as) => as.service?.name))].join(' + ') || 'Serviço'
         } : null
       });
 
@@ -481,7 +481,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
                       <div className="mb-4">
                         <p className="text-[10px] font-black text-primary uppercase tracking-[0.15em] mb-1">Serviço</p>
                         <p className="text-xs font-bold text-slate-600 dark:text-gray-300">
-                          {[...new Set(app.appointment_services?.map((as: any) => as.service?.name).filter(Boolean))].join(' + ') || 'Serviço'}
+                          {[...new Set(app.appointment_services?.map((as) => as.service?.name).filter(Boolean))].join(' + ') || 'Serviço'}
                         </p>
                       </div>
 
@@ -569,7 +569,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
               {notifications.length > 0 ? (
-                notifications.map((notif: any) => (
+                notifications.map((notif) => (
                   <div key={notif.id} className="p-5 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
                     <div className="flex justify-between items-start mb-2">
                       <p className="text-primary text-[10px] font-black uppercase tracking-widest">Novo Agendamento</p>

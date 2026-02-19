@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
 
+interface BeforeInstallPromptEvent extends Event {
+    readonly platforms: string[];
+    readonly userChoice: Promise<{
+        outcome: 'accepted' | 'dismissed';
+        platform: string;
+    }>;
+    prompt(): Promise<void>;
+}
+
 export const PWAInstallPrompt: React.FC = () => {
-    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
     const [isVisible, setIsVisible] = useState(false);
     const [isIOS, setIsIOS] = useState(false);
     const [isStandalone, setIsStandalone] = useState(false);
@@ -9,7 +18,7 @@ export const PWAInstallPrompt: React.FC = () => {
     useEffect(() => {
         // Check if standalone
         const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches ||
-            (window.navigator as any).standalone ||
+            ('standalone' in window.navigator && (window.navigator as any).standalone) ||
             document.referrer.includes('android-app://');
 
         setIsStandalone(isInStandaloneMode);
@@ -21,9 +30,9 @@ export const PWAInstallPrompt: React.FC = () => {
 
         if (!isInStandaloneMode) {
             if (!ios) {
-                const handler = (e: any) => {
+                const handler = (e: Event) => {
                     e.preventDefault();
-                    setDeferredPrompt(e);
+                    setDeferredPrompt(e as BeforeInstallPromptEvent);
                     // Don't show immediately, check local storage
                     const hasClosed = localStorage.getItem('pwa-prompt-closed');
                     if (!hasClosed) setIsVisible(true);

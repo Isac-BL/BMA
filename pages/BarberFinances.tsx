@@ -20,7 +20,7 @@ const BarberFinances: React.FC<BarberFinancesProps> = ({ user, onLogout }) => {
         today: 0,
         week: 0,
         month: 0,
-        history: [] as any[]
+        history: [] as Appointment[]
     });
 
     useEffect(() => {
@@ -60,7 +60,7 @@ const BarberFinances: React.FC<BarberFinancesProps> = ({ user, onLogout }) => {
             const mappedData = appointments?.map(app => {
                 const val = parseFloat(app.value) || 0;
                 const isEarned = app.status === 'completed';
-                const services_list = app.appointment_services?.map((as: any) => as.service) || [];
+                const services_list = app.appointment_services?.map((as) => as.service) || [];
 
                 if (isEarned) {
                     const appDate = new Date(app.appointment_date + 'T00:00:00');
@@ -72,7 +72,7 @@ const BarberFinances: React.FC<BarberFinancesProps> = ({ user, onLogout }) => {
                 return {
                     ...app,
                     services_list,
-                    display_services: services_list.map((s: any) => s.name).join(' + ') || 'Sem serviço'
+                    display_services: services_list.map((s) => s.name).join(' + ') || 'Sem serviço'
                 };
             }) || [];
 
@@ -209,7 +209,7 @@ const BarberFinances: React.FC<BarberFinancesProps> = ({ user, onLogout }) => {
                                             <div className="flex flex-col justify-center gap-1">
                                                 <p className="text-base font-black leading-none text-slate-900 dark:text-white">{app.client?.name || 'Cliente'}</p>
                                                 <p className="text-[10px] font-bold text-primary uppercase tracking-widest truncate max-w-[150px]">
-                                                    {[...new Set(app.appointment_services?.map((as: any) => as.service?.name))].join(' + ') || 'Sem serviço'}
+                                                    {[...new Set(app.appointment_services?.map((as) => as.service?.name))].join(' + ') || 'Sem serviço'}
                                                 </p>
                                                 <p className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-tight">
                                                     {new Date(app.appointment_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}, {app.appointment_time}

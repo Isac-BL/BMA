@@ -1,7 +1,7 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { SpeedInsights } from "@vercel/speed-insights/react"
-import { User, UserRole, Service } from './types.ts';
+import { User, UserRole, Service, BookingState } from './types.ts';
 import { supabase } from './supabase.ts';
 import ProtectedRoute from './components/ProtectedRoute.tsx';
 import PublicRoute from './components/PublicRoute.tsx';
@@ -35,14 +35,7 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [bookingState, setBookingState] = useState<{
-    services: Service[];
-    barber: User | null;
-    date: string | null;
-    time: string | null;
-    rescheduleAppointmentId?: string | null;
-    guestName?: string;
-  }>({
+  const [bookingState, setBookingState] = useState<BookingState>({
     services: [],
     barber: null,
     date: null,
@@ -131,7 +124,7 @@ const App: React.FC = () => {
         .eq('id', id)
         .single();
 
-      const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) =>
+      const timeoutPromise = new Promise<{ data: Record<string, any> | null; error: any }>((_, reject) =>
         setTimeout(() => reject(new Error('Timeout fetching profile')), 5000)
       );
 

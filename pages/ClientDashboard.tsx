@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Appointment } from '../types.ts';
+import { User, Appointment, BookingState, UserRole, AppNotification } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import { supabase } from '../supabase.ts';
 import ClientNavigation from '../components/ClientNavigation.tsx';
@@ -8,12 +8,12 @@ import ClientNavigation from '../components/ClientNavigation.tsx';
 interface ClientDashboardProps {
   user: User;
   onLogout: () => void;
-  setBookingState?: (state: any) => void;
+  setBookingState?: (state: BookingState) => void;
 }
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBookingState }) => {
   const navigate = useNavigate();
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const STATUS_MAP: Record<string, { label: string, color: string, bg: string }> = {
     pending: { label: 'PENDENTE', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
@@ -22,7 +22,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
     cancelled_client: { label: 'CANC. CLIENTE', color: 'text-red-400', bg: 'bg-red-400/10' },
     cancelled_barber: { label: 'CANC. BARBEIRO', color: 'text-red-600', bg: 'bg-red-600/10' },
   };
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
@@ -285,7 +285,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
                         <div className="flex items-center justify-between">
                           <div className="flex flex-col">
                             <p className="text-white font-black text-lg truncate leading-tight">
-                              {[...new Set(app.appointment_services?.map((s: any) => s.service?.name).filter(Boolean))].join(' + ') || 'Serviço'}
+                              {[...new Set(app.appointment_services?.map((s) => s.service?.name).filter(Boolean))].join(' + ') || 'Serviço'}
                             </p>
                             <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded mt-1.5 w-fit ${STATUS_MAP[app.status]?.bg} ${STATUS_MAP[app.status]?.color}`}>
                               {STATUS_MAP[app.status]?.label}
@@ -316,10 +316,10 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
                                   id: app.barber.id,
                                   name: app.barber.name,
                                   avatar: app.barber.avatar_url,
-                                  role: app.barber.role || 'BARBER', // ensure role is present
+                                  role: (app.barber.role || UserRole.BARBER) as UserRole,
                                   email: '' // required by type but not used logic
                                 },
-                                services: app.appointment_services?.map((as: any) => ({
+                                services: app.appointment_services?.map((as) => ({
                                   id: as.service.id,
                                   name: as.service.name,
                                   duration: as.service.duration,

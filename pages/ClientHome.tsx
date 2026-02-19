@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Service } from '../types.ts';
+import { User, Service, Appointment, AppNotification } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
 import { supabase } from '../supabase.ts';
 import ClientNavigation from '../components/ClientNavigation.tsx';
@@ -12,9 +12,9 @@ interface ClientHomeProps {
 
 const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
     const navigate = useNavigate();
-    const [nextAppointment, setNextAppointment] = useState<any>(null);
+    const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
     const [loading, setLoading] = useState(true);
-    const [notifications, setNotifications] = useState<any[]>([]);
+    const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [showNotifications, setShowNotifications] = useState(false);
 
     useEffect(() => {
@@ -149,7 +149,7 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                                         {formatCurrency(nextAppointment.value)}
                                     </span>
                                     <p className="text-white font-black text-2xl truncate mb-1">
-                                        {[...new Set(nextAppointment.appointment_services?.map((as: any) => as.service?.name))].join(' + ') || 'Serviço'}
+                                        {[...new Set(nextAppointment.appointment_services?.map((as) => as.service?.name))].join(' + ') || 'Serviço'}
                                     </p>
                                     <div className="flex items-center gap-2 text-primary">
                                         {nextAppointment.barber?.avatar_url ? (
@@ -249,7 +249,7 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
                             {notifications.length > 0 ? (
-                                notifications.map((notif: any) => (
+                                notifications.map((notif) => (
                                     <div key={notif.id} className="p-5 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
                                         <div className="flex justify-between items-start mb-2">
                                             <p className="text-primary text-[10px] font-black uppercase tracking-widest">{notif.title || 'Aviso'}</p>
