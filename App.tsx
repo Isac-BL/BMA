@@ -53,7 +53,7 @@ const App: React.FC = () => {
         // Add a timeout to prevent infinite loading
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-          setTimeout(() => resolve({ data: { session: null } }), 5000)
+          setTimeout(() => resolve({ data: { session: null } }), 10000)
         );
 
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
@@ -125,7 +125,7 @@ const App: React.FC = () => {
         .single();
 
       const timeoutPromise = new Promise<{ data: Record<string, any> | null; error: any }>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout fetching profile')), 5000)
+        setTimeout(() => reject(new Error('Timeout fetching profile')), 10000)
       );
 
       let data, error;
@@ -139,13 +139,19 @@ const App: React.FC = () => {
       }
 
       if (error) {
-        // If profile missing or timeout, use metadata
+        // If profile missing or timeout, check metadata role carefully
         console.warn('Profile not found or error, using session metadata.', error);
+
+        // Determine role: prefer metadata, then check if we are on a barber route as a hint, 
+        // but default to CLIENT only as a last resort.
+        const fallbackRole = (metadata.role as UserRole) ||
+          (window.location.hash.includes('/barber') ? UserRole.BARBER : UserRole.CLIENT);
+
         setUser({
           id,
           name: metadata.name || 'Usuário',
           email: email,
-          role: (metadata.role as UserRole) || UserRole.CLIENT,
+          role: fallbackRole,
           avatar: metadata.avatar_url
         });
       } else {
@@ -162,12 +168,13 @@ const App: React.FC = () => {
       }
     } catch (error) {
       console.error('Error in fetchProfile:', error);
-      // Fallback
+      // Fallback with route hint
+      const fallbackRole = window.location.hash.includes('/barber') ? UserRole.BARBER : UserRole.CLIENT;
       setUser({
         id,
         name: 'Usuário',
         email: email,
-        role: UserRole.CLIENT,
+        role: fallbackRole,
       });
     } finally {
       setLoading(false);
