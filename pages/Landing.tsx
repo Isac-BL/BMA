@@ -74,46 +74,48 @@ const Landing: React.FC = () => {
             </p>
           </div>
         </div>
-        <div className="w-full flex flex-col gap-5 mt-10">
+        <div className="w-full flex flex-col gap-6 mt-12">
           <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-gray-300 dark:border-white/10"></div>
-            <span className="flex-shrink-0 mx-4 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-white/40">Entrar como</span>
-            <div className="flex-grow border-t border-gray-300 dark:border-white/10"></div>
+            <div className="flex-grow border-t border-white/5"></div>
+            <span className="flex-shrink-0 mx-6 text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Identifique-se</span>
+            <div className="flex-grow border-t border-white/5"></div>
           </div>
+
           <button
             onClick={() => navigate(`/signup/${UserRole.BARBER.toLowerCase()}`)}
-            className="relative group w-full p-1 rounded-xl transition-transform active:scale-[0.99]"
+            className="group relative w-full h-20 rounded-[2rem] p-px overflow-hidden transition-all active:scale-[0.98]"
           >
-            <div className="absolute inset-0 bg-primary rounded-xl blur-sm opacity-20 group-hover:opacity-40 transition-opacity"></div>
-            <div className="relative w-full h-16 bg-primary hover:bg-[#d9a60b] rounded-xl flex items-center justify-between px-6 transition-colors shadow-gold cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-black/10 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[#181611] text-[24px]">content_cut</span>
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="relative h-full w-full glass rounded-[2rem] flex items-center justify-between px-7 border-white/5 group-hover:border-primary/30 transition-all">
+              <div className="flex items-center gap-5">
+                <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <span className="material-symbols-outlined text-primary text-[28px]">content_cut</span>
                 </div>
-                <div className="flex flex-col items-start text-left">
-                  <span className="text-[#181611] text-base font-bold leading-none tracking-wide">SOU BARBEIRO</span>
-                  <span className="text-[#181611]/70 text-[10px] font-semibold uppercase mt-1 tracking-wider">Acesso Administrativo</span>
+                <div className="flex flex-col items-start">
+                  <span className="text-white text-base font-black leading-tight tracking-tight">Sou Barbeiro</span>
+                  <span className="text-primary text-[10px] font-black uppercase tracking-wider">Acesso Profissional</span>
                 </div>
               </div>
-              <span className="material-symbols-outlined text-[#181611] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              <span className="material-symbols-outlined text-primary opacity-40 group-hover:opacity-100 group-hover:translate-x-1 transition-all">arrow_forward</span>
             </div>
           </button>
+
           <button
             onClick={() => navigate(`/login/${UserRole.CLIENT.toLowerCase()}`)}
-            className="relative group w-full p-1 rounded-xl transition-transform active:scale-[0.99]"
+            className="group relative w-full h-20 rounded-[2rem] p-px overflow-hidden transition-all active:scale-[0.98]"
           >
-            <div className="absolute inset-0 bg-white rounded-xl blur-sm opacity-10 group-hover:opacity-30 transition-opacity"></div>
-            <div className="relative w-full h-16 bg-white hover:bg-gray-100 rounded-xl flex items-center justify-between px-6 transition-colors shadow-white cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-lg bg-black/5 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-black text-[24px]">person</span>
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="relative h-full w-full glass rounded-[2rem] flex items-center justify-between px-7 border-white/5 group-hover:border-white/20 transition-all">
+              <div className="flex items-center gap-5">
+                <div className="size-12 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+                  <span className="material-symbols-outlined text-white/60 text-[28px]">person</span>
                 </div>
-                <div className="flex flex-col items-start text-left">
-                  <span className="text-black text-base font-bold leading-none tracking-wide">SOU CLIENTE</span>
-                  <span className="text-black/60 text-[10px] font-semibold uppercase mt-1 tracking-wider">Agendar e Histórico</span>
+                <div className="flex flex-col items-start">
+                  <span className="text-white text-base font-black leading-tight tracking-tight">Sou Cliente</span>
+                  <span className="text-white/40 text-[10px] font-black uppercase tracking-wider">Agendar Atendimento</span>
                 </div>
               </div>
-              <span className="material-symbols-outlined text-black group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              <span className="material-symbols-outlined text-white opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all">arrow_forward</span>
             </div>
           </button>
         </div>

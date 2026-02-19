@@ -248,10 +248,11 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
         }
       }
 
-      navigate(user.role === 'BARBER' ? '/barber/schedule' : '/client');
-    } catch (err: any) {
-      console.error('Error finalizing appointment:', err);
-      setError(err.message || 'Erro ao processar agendamento. Tente novamente.');
+      navigate(user.role === 'BARBER' ? '/barber/schedule' : '/client', { replace: true });
+    } catch (err) {
+      const error = err as Error;
+      console.error('Error finalizing appointment:', error);
+      setError(error.message || 'Erro ao processar agendamento. Tente novamente.');
     } finally {
       setLoading(false);
     }

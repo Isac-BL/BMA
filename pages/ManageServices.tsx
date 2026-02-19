@@ -16,6 +16,7 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchServices();
@@ -49,8 +50,13 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
     if (!editingService?.name) return;
 
     try {
+      setSaving(true);
       const price = parseFloat(editingService.price?.toString() || '0');
       const duration = parseInt(editingService.duration?.toString() || '30');
+
+      if (isNaN(price) || isNaN(duration)) {
+        throw new Error('Preço ou duração inválidos.');
+      }
 
       const { error } = editingService.id
         ? await supabase
@@ -65,25 +71,33 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
 
       setIsModalOpen(false);
       setEditingService(null);
-      fetchServices();
-    } catch (err: any) {
-      console.error('Error saving service:', err);
-      alert(`Erro ao salvar serviço: ${err.message || 'Erro desconhecido'}`);
+      await fetchServices();
+    } catch (err) {
+      const error = err as Error;
+      console.error('Error saving service:', error);
+      alert(`Erro ao salvar serviço: ${error.message || 'Erro desconhecido'}`);
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este serviço?')) return;
     try {
+      setSaving(true);
       const { error } = await supabase
         .from('services')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
-      fetchServices();
+      await fetchServices();
     } catch (err) {
-      console.error('Error deleting service:', err);
+      const error = err as Error;
+      console.error('Error deleting service:', error);
+      alert('Erro ao excluir serviço.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -281,9 +295,10 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
               <div className="pt-4">
                 <button
                   type="submit"
-                  className="w-full bg-primary text-background-dark font-black text-sm uppercase tracking-widest py-4 rounded-2xl shadow-gold hover:bg-[#cda224] active:scale-95 transition-all"
+                  disabled={saving}
+                  className="w-full bg-primary text-background-dark font-black text-sm uppercase tracking-widest py-4 rounded-2xl shadow-gold hover:bg-[#cda224] active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {editingService?.id ? 'Salvar Alterações' : 'Criar Serviço'}
+                  {saving ? 'PROCESSANDO...' : (editingService?.id ? 'Salvar Alterações' : 'Criar Serviço')}
                 </button>
               </div>
             </form>

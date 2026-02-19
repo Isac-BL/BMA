@@ -101,9 +101,10 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
 
       if (error) throw error;
       alert('Horários salvos com sucesso!');
-    } catch (err: any) {
-      console.error('Error saving hours:', err);
-      alert(`Erro ao salvar horários: ${err.message || 'Erro desconhecido'}`);
+    } catch (err) {
+      const error = err as Error;
+      console.error('Error saving hours:', error);
+      alert(`Erro ao salvar horários: ${error.message || 'Erro desconhecido'}`);
     } finally {
       setSaving(false);
     }
@@ -148,7 +149,11 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
   };
 
   const addBlockedDay = async (reason: string) => {
-    const dateStr = selectedBlockDate.toISOString().split('T')[0];
+    // Avoid timezone shift by getting pieces from the date object
+    const year = selectedBlockDate.getFullYear();
+    const month = String(selectedBlockDate.getMonth() + 1).padStart(2, '0');
+    const day = String(selectedBlockDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     try {
       const { data, error } = await supabase
         .from('blocked_days')
@@ -159,7 +164,9 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
       if (error) throw error;
       setBlockedDays(prev => [...prev, data]);
     } catch (err) {
-      console.error('Error blocking day:', err);
+      const error = err as Error;
+      console.error('Error blocking day:', error);
+      alert(`Erro ao bloquear: ${error.message}`);
     }
   };
 
@@ -242,7 +249,12 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
                 {blockedDays.map(d => (
                   <div key={d.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-background-dark rounded-2xl border border-gray-100 dark:border-white/5">
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{new Date(d.blocked_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                      <p className="font-bold text-slate-900 dark:text-white">
+                        {(() => {
+                          const [y, m, day] = d.blocked_date.split('-').map(Number);
+                          return new Date(y, m - 1, day).toLocaleDateString('pt-BR');
+                        })()}
+                      </p>
                       <p className="text-xs text-gray-500 font-medium">{d.reason}</p>
                     </div>
                     <button onClick={() => removeBlockedDay(d.id)} className="text-red-500"><span className="material-symbols-outlined text-lg">delete</span></button>

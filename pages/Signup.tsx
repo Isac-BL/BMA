@@ -81,108 +81,111 @@ const Signup: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="flex-1 flex flex-col px-6 py-8 gap-6">
-          <form className="flex-1 flex flex-col gap-6" onSubmit={handleSubmit}>
-            {error && <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm text-center">{error}</div>}
+        <div className="flex-1 flex flex-col px-6 py-4 gap-6">
+          <div className="glass rounded-[2.5rem] p-6 border-white/5 shadow-2xl">
+            <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+              {error && <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm text-center font-bold tracking-tight">{error}</div>}
 
-            {isBarber && (
+              {isBarber && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1">Código de Acesso Corporativo</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <span className="material-symbols-outlined text-primary group-focus-within:text-white transition-colors">key</span>
+                    </div>
+                    <input
+                      className="w-full h-14 pl-12 pr-4 bg-primary/10 border border-primary/30 rounded-2xl text-white placeholder-primary/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50 font-bold"
+                      placeholder="Código secreto"
+                      value={formData.accessCode}
+                      onChange={e => setFormData({ ...formData, accessCode: e.target.value })}
+                      required={isBarber}
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-primary uppercase tracking-wider ml-1">Código de Acesso do Estabelecimento</label>
+                <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1">Nome Completo</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <span className="material-symbols-outlined text-primary group-focus-within:text-white transition-colors">key</span>
+                    <span className="material-symbols-outlined text-white/20 group-focus-within:text-primary transition-colors">person</span>
                   </div>
                   <input
-                    className="w-full h-14 pl-12 pr-4 bg-primary/10 border border-primary/30 rounded-xl text-white placeholder-primary/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
-                    placeholder="Código secreto"
-                    value={formData.accessCode}
-                    onChange={e => setFormData({ ...formData, accessCode: e.target.value })}
-                    required={isBarber}
+                    className="w-full h-14 pl-12 pr-4 bg-background-dark/50 border border-white/5 rounded-2xl text-white placeholder-white/10 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50 font-bold"
+                    placeholder="Seu nome"
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    required
                     disabled={loading}
                   />
                 </div>
               </div>
-            )}
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Nome Completo</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors">person</span>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1">Seu melhor E-mail</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-white/20 group-focus-within:text-primary transition-colors">mail</span>
+                  </div>
+                  <input
+                    className="w-full h-14 pl-12 pr-4 bg-background-dark/50 border border-white/5 rounded-2xl text-white placeholder-white/10 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50 font-bold"
+                    placeholder="seu@email.com"
+                    type="email"
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    required
+                    disabled={loading}
+                  />
                 </div>
-                <input
-                  className="w-full h-14 pl-12 pr-4 bg-surface-dark border border-white/5 rounded-xl text-white placeholder-text-muted/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
-                  placeholder="Seu nome"
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  required
-                  disabled={loading}
-                />
               </div>
-            </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">E-mail</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors">mail</span>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1">Crie sua Senha</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-white/20 group-focus-within:text-primary transition-colors">lock</span>
+                  </div>
+                  <input
+                    className="w-full h-14 pl-12 pr-4 bg-background-dark/50 border border-white/5 rounded-2xl text-white placeholder-white/10 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50 font-bold"
+                    placeholder="••••••••"
+                    type="password"
+                    value={formData.password}
+                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                    required
+                    disabled={loading}
+                    minLength={6}
+                  />
                 </div>
-                <input
-                  className="w-full h-14 pl-12 pr-4 bg-surface-dark border border-white/5 rounded-xl text-white placeholder-text-muted/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
-                  placeholder="seu@email.com"
-                  type="email"
-                  value={formData.email}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  required
+              </div>
+
+              <div className="flex flex-col gap-4 mt-2">
+                <button
+                  className="w-full h-16 bg-primary hover:bg-yellow-500 active:scale-[0.98] text-background-dark text-sm font-black uppercase tracking-[0.2em] rounded-2xl shadow-gold flex items-center justify-center gap-3 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="submit"
                   disabled={loading}
-                />
+                >
+                  <span>{loading ? 'Processando...' : `Confirmar Cadastro`}</span>
+                  <span className="material-symbols-outlined text-xl">{loading ? 'sync' : 'person_add'}</span>
+                </button>
               </div>
-            </div>
+            </form>
+          </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Senha</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors">lock</span>
-                </div>
-                <input
-                  className="w-full h-14 pl-12 pr-4 bg-surface-dark border border-white/5 rounded-xl text-white placeholder-text-muted/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
-                  placeholder="••••••••"
-                  type="password"
-                  value={formData.password}
-                  onChange={e => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  disabled={loading}
-                  minLength={6}
-                />
-              </div>
+          <div className="flex flex-col gap-4">
+            <div className="relative flex py-2 items-center">
+              <div className="flex-grow border-t border-white/5"></div>
+              <span className="flex-shrink-0 mx-4 text-[10px] font-black uppercase tracking-widest text-white/20">Já é de casa?</span>
+              <div className="flex-grow border-t border-white/5"></div>
             </div>
-
-            <div className="flex-1"></div>
-            <div className="flex flex-col gap-4 mt-4 mb-4">
-              <button
-                className="w-full h-14 bg-primary hover:bg-yellow-500 active:scale-[0.98] text-background-dark text-base font-bold rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                type="submit"
-                disabled={loading}
-              >
-                <span>{loading ? 'Criando conta...' : `Criar conta de ${isBarber ? 'Barbeiro' : 'Cliente'}`}</span>
-                <span className="material-symbols-outlined text-xl">{loading ? 'sync' : 'person_add'}</span>
-              </button>
-
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-white/5"></div>
-                <span className="flex-shrink-0 mx-4 text-text-muted text-xs uppercase tracking-wider">Já tem uma conta?</span>
-                <div className="flex-grow border-t border-white/5"></div>
-              </div>
-              <button
-                className="w-full h-14 bg-transparent border border-white/5 hover:border-text-muted hover:bg-surface-dark active:scale-[0.98] text-white text-base font-bold rounded-xl flex items-center justify-center gap-2 transition-all duration-200"
-                type="button"
-                onClick={() => navigate(`/login/${role}`)}
-              >
-                Fazer Login
-              </button>
-            </div>
-          </form>
+            <button
+              className="w-full h-14 bg-transparent border border-white/5 hover:border-white/20 hover:bg-white/5 active:scale-[0.98] text-white text-xs font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 transition-all duration-200"
+              type="button"
+              onClick={() => navigate(`/login/${role}`)}
+            >
+              Fazer Login
+            </button>
+          </div>
         </div>
       </div>
     </div>

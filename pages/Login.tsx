@@ -107,20 +107,19 @@ const Login: React.FC = () => {
       } else {
         // Successful login
         console.log("Login successful:", data);
-        setTimeout(() => {
-          navigate(isBarber ? '/barber' : '/client');
-        }, 100);
+        navigate(isBarber ? '/barber' : '/client', { replace: true });
       }
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as Error;
       // 4. Log the REAL error
-      console.error("LOGIN ERROR REAL:", err);
+      console.error("LOGIN ERROR REAL:", error);
 
-      if (err.message?.includes("Invalid login credentials")) {
+      if (error.message?.includes("Invalid login credentials")) {
         setError("E-mail ou senha incorretos.");
-      } else if (err.message?.includes("Tempo limite") || err.message?.includes("timeout")) {
+      } else if (error.message?.includes("Tempo limite") || error.message?.includes("timeout")) {
         setError("O servidor demorou para responder. Verifique sua conexão.");
       } else {
-        setError(err.message || 'Erro ao fazer login.');
+        setError(error.message || 'Erro ao fazer login.');
       }
       setLoading(false);
     }
@@ -171,89 +170,94 @@ const Login: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="flex-1 flex flex-col px-6 py-8 gap-6">
-          <form className="flex-1 flex flex-col gap-6" onSubmit={handleSubmit}>
-            {error && <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm text-center">{error}</div>}
-            {success && <div className="p-3 bg-green-500/10 border border-green-500/50 rounded-lg text-green-500 text-sm text-center">{success}</div>}
+        <div className="flex-1 flex flex-col px-6 py-4 gap-6">
+          <div className="glass rounded-[2.5rem] p-6 border-white/5 shadow-2xl">
+            <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+              {error && <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm text-center font-bold tracking-tight">{error}</div>}
+              {success && <div className="p-3 bg-green-500/10 border border-green-500/50 rounded-lg text-green-500 text-sm text-center font-bold tracking-tight">{success}</div>}
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">E-mail {isBarber ? 'Profissional' : ''}</label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors">mail</span>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1">E-mail {isBarber ? 'Profissional' : ''}</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-white/20 group-focus-within:text-primary transition-colors">mail</span>
+                  </div>
+                  <input
+                    className="w-full h-14 pl-12 pr-4 bg-background-dark/50 border border-white/5 rounded-2xl text-white placeholder-white/10 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50 font-bold"
+                    placeholder={isBarber ? "exemplo@barbearia.com" : "seu@email.com"}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
                 </div>
-                <input
-                  className="w-full h-14 pl-12 pr-4 bg-surface-dark border border-white/5 rounded-xl text-white placeholder-text-muted/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 disabled:opacity-50"
-                  placeholder={isBarber ? "exemplo@barbearia.com" : "seu@email.com"}
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={loading}
-                />
               </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-wider ml-1">Senha</label>
-              <div className="relative group flex items-stretch rounded-xl bg-surface-dark border border-white/5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all duration-300">
-                <div className="pl-4 flex items-center pointer-events-none">
-                  <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors">lock</span>
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] ml-1">Senha de Acesso</label>
+                <div className="relative group flex items-stretch rounded-2xl bg-background-dark/50 border border-white/5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all duration-300">
+                  <div className="pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-white/20 group-focus-within:text-primary transition-colors">lock</span>
+                  </div>
+                  <input
+                    className="flex-1 h-14 pl-3 pr-2 bg-transparent border-none text-white placeholder-white/10 focus:ring-0 focus:outline-none disabled:opacity-50 font-bold"
+                    placeholder="••••••••"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    className="pr-4 pl-2 flex items-center justify-center text-white/20 hover:text-white transition-colors"
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    <span className="material-symbols-outlined">{showPassword ? 'visibility' : 'visibility_off'}</span>
+                  </button>
                 </div>
-                <input
-                  className="flex-1 h-14 pl-3 pr-2 bg-transparent border-none text-white placeholder-text-muted/50 focus:ring-0 focus:outline-none disabled:opacity-50"
-                  placeholder="••••••••"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                />
+                <div className="flex justify-end mt-1">
+                  <button
+                    onClick={handleResetPassword}
+                    className="text-[10px] font-black text-white/40 uppercase tracking-widest hover:text-primary transition-colors flex items-center gap-1"
+                    type="button"
+                    disabled={loading}
+                  >
+                    Esqueci minha senha
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4 mt-2">
                 <button
-                  className="pr-4 pl-2 flex items-center justify-center text-text-muted hover:text-white transition-colors"
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  className="w-full h-16 bg-primary hover:bg-yellow-500 active:scale-[0.98] text-background-dark text-sm font-black uppercase tracking-[0.2em] rounded-2xl shadow-gold flex items-center justify-center gap-3 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="submit"
+                  disabled={loading}
                 >
-                  <span className="material-symbols-outlined">{showPassword ? 'visibility' : 'visibility_off'}</span>
+                  <span>{loading ? 'Processando...' : `Acessar Painel`}</span>
+                  <span className="material-symbols-outlined text-xl">{loading ? 'sync' : 'login'}</span>
                 </button>
               </div>
-              <div className="flex justify-end mt-1">
-                <button
-                  onClick={handleResetPassword}
-                  className="text-sm font-medium text-text-muted hover:text-primary transition-colors flex items-center gap-1"
-                  type="button"
-                  disabled={loading}
-                >
-                  Esqueci minha senha
-                </button>
-              </div>
+            </form>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="relative flex py-2 items-center">
+              <div className="flex-grow border-t border-white/5"></div>
+              <span className="flex-shrink-0 mx-4 text-[10px] font-black uppercase tracking-widest text-white/20">
+                {isBarber ? 'Novo na equipe?' : 'Primeira vez aqui?'}
+              </span>
+              <div className="flex-grow border-t border-white/5"></div>
             </div>
-            <div className="flex-1"></div>
-            <div className="flex flex-col gap-4 mt-4 mb-4">
-              <button
-                className="w-full h-14 bg-primary hover:bg-yellow-500 active:scale-[0.98] text-background-dark text-base font-bold rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                type="submit"
-                disabled={loading}
-              >
-                <span>{loading ? 'Entrando...' : `Entrar como ${isBarber ? 'Barbeiro' : 'Cliente'}`}</span>
-                <span className="material-symbols-outlined text-xl">{loading ? 'sync' : 'arrow_forward'}</span>
-              </button>
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-white/5"></div>
-                <span className="flex-shrink-0 mx-4 text-text-muted text-xs uppercase tracking-wider">
-                  {isBarber ? 'Novo na equipe?' : 'Ainda não tem conta?'}
-                </span>
-                <div className="flex-grow border-t border-white/5"></div>
-              </div>
-              <button
-                className="w-full h-14 bg-transparent border border-white/5 hover:border-text-muted hover:bg-surface-dark active:scale-[0.98] text-white text-base font-bold rounded-xl flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
-                type="button"
-                onClick={() => navigate(`/signup/${role}`)}
-                disabled={loading}
-              >
-                Criar conta de {isBarber ? 'Barbeiro' : 'Cliente'}
-              </button>
-            </div>
-          </form>
+            <button
+              className="w-full h-14 bg-transparent border border-white/5 hover:border-white/20 hover:bg-white/5 active:scale-[0.98] text-white text-xs font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50"
+              type="button"
+              onClick={() => navigate(`/signup/${role}`)}
+              disabled={loading}
+            >
+              Criar conta agora
+            </button>
+          </div>
         </div>
       </div>
     </div>

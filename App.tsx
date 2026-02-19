@@ -26,8 +26,17 @@ const ManageHours = lazy(() => import('./pages/ManageHours.tsx'));
 const Profile = lazy(() => import('./pages/Profile.tsx'));
 
 const LoadingSpinner = () => (
-  <div className="bg-background-dark min-h-screen flex items-center justify-center">
-    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary"></div>
+  <div className="bg-background-dark min-h-screen flex flex-col items-center justify-center gap-6">
+    <div className="relative">
+      <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full scale-150"></div>
+      <div className="size-16 border-[3px] border-primary/10 border-t-primary rounded-full animate-spin relative z-10 shadow-[0_0_20px_rgba(225,180,45,0.2)]"></div>
+    </div>
+    <div className="flex flex-col items-center gap-2 animate-pulse">
+      <span className="text-primary text-[10px] font-black uppercase tracking-[0.3em]">Carregando</span>
+      <div className="h-1 w-12 bg-white/5 rounded-full overflow-hidden">
+        <div className="h-full bg-primary/40 animate-[loading_1.5s_infinite]"></div>
+      </div>
+    </div>
   </div>
 );
 
@@ -185,75 +194,82 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      <div className="bg-background-dark min-h-screen text-white font-display overflow-x-hidden">
+      <div className="min-h-screen bg-transparent text-white font-display">
         <SpeedInsights />
         <PWAInstallPrompt />
-        <Suspense fallback={<LoadingSpinner />}>
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <PublicRoute user={user}>
-                  <Landing />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/login/:role"
-              element={
-                <PublicRoute user={user}>
-                  <Login />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/signup/:role"
-              element={
-                <PublicRoute user={user}>
-                  <Signup />
-                </PublicRoute>
-              }
-            />
+        {/* Main centered container for premium desktop experience */}
+        <div className="relative mx-auto min-h-screen w-full flex flex-col items-center">
+          <div className="w-full max-w-[500px] min-h-screen bg-background-dark shadow-[0_0_100px_rgba(0,0,0,0.8)] relative overflow-x-hidden border-x border-white/[0.02]">
+            <Suspense fallback={<LoadingSpinner />}>
+              <Routes>
+                <Route
+                  path="/"
+                  element={
+                    <PublicRoute user={user}>
+                      <Landing />
+                    </PublicRoute>
+                  }
+                />
+                <Route
+                  path="/login/:role"
+                  element={
+                    <PublicRoute user={user}>
+                      <Login />
+                    </PublicRoute>
+                  }
+                />
+                <Route
+                  path="/signup/:role"
+                  element={
+                    <PublicRoute user={user}>
+                      <PublicRoute user={user}>
+                        <Signup />
+                      </PublicRoute>
+                    </PublicRoute>
+                  }
+                />
 
-            <Route
-              path="/client/*"
-              element={
-                <ProtectedRoute user={user} allowedRoles={[UserRole.CLIENT, UserRole.BARBER]}>
-                  <Routes>
-                    <Route index element={<ClientHome user={user} onLogout={handleLogout} />} />
-                    <Route path="appointments" element={<ClientDashboard user={user} onLogout={handleLogout} setBookingState={setBookingState} />} />
-                    <Route path="profile" element={<Profile user={user} onUpdate={refreshProfile} onLogout={handleLogout} />} />
-                    <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} user={user!} />} />
-                    <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
-                    <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user} />} />
-                  </Routes>
-                </ProtectedRoute>
-              }
-            />
+                <Route
+                  path="/client/*"
+                  element={
+                    <ProtectedRoute user={user} allowedRoles={[UserRole.CLIENT, UserRole.BARBER]}>
+                      <Routes>
+                        <Route index element={<ClientHome user={user} onLogout={handleLogout} />} />
+                        <Route path="appointments" element={<ClientDashboard user={user} onLogout={handleLogout} setBookingState={setBookingState} />} />
+                        <Route path="profile" element={<Profile user={user} onUpdate={refreshProfile} onLogout={handleLogout} />} />
+                        <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} user={user!} />} />
+                        <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
+                        <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user} />} />
+                      </Routes>
+                    </ProtectedRoute>
+                  }
+                />
 
-            <Route
-              path="/barber/*"
-              element={
-                <ProtectedRoute user={user} allowedRoles={[UserRole.BARBER]}>
-                  <Routes>
-                    <Route index element={<BarberDashboard user={user} onLogout={handleLogout} setBookingState={setBookingState} />} />
-                    <Route path="schedule" element={<BarberSchedule user={user!} onLogout={handleLogout} setBookingState={setBookingState} />} />
-                    <Route path="finances" element={<BarberFinances user={user!} onLogout={handleLogout} />} />
-                    <Route path="services" element={<ManageServices user={user!} onLogout={handleLogout} />} />
-                    <Route path="hours" element={<ManageHours user={user!} onLogout={handleLogout} />} />
-                    <Route path="profile" element={<Profile user={user!} onUpdate={refreshProfile} onLogout={handleLogout} />} />
-                    {/* Manual Booking Flow for Barbers */}
-                    <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} user={user!} />} />
-                    <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
-                    <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user!} />} />
-                  </Routes>
-                </ProtectedRoute>
-              }
-            />
+                <Route
+                  path="/barber/*"
+                  element={
+                    <ProtectedRoute user={user} allowedRoles={[UserRole.BARBER]}>
+                      <Routes>
+                        <Route index element={<BarberDashboard user={user} onLogout={handleLogout} setBookingState={setBookingState} />} />
+                        <Route path="schedule" element={<BarberSchedule user={user!} onLogout={handleLogout} setBookingState={setBookingState} />} />
+                        <Route path="finances" element={<BarberFinances user={user!} onLogout={handleLogout} />} />
+                        <Route path="services" element={<ManageServices user={user!} onLogout={handleLogout} />} />
+                        <Route path="hours" element={<ManageHours user={user!} onLogout={handleLogout} />} />
+                        <Route path="profile" element={<Profile user={user!} onUpdate={refreshProfile} onLogout={handleLogout} />} />
+                        {/* Manual Booking Flow for Barbers */}
+                        <Route path="book/services" element={<ServiceSelection setBookingState={setBookingState} bookingState={bookingState} user={user!} />} />
+                        <Route path="book/schedule" element={<ScheduleSelection setBookingState={setBookingState} bookingState={bookingState} />} />
+                        <Route path="book/confirm" element={<Confirmation bookingState={bookingState} user={user!} />} />
+                      </Routes>
+                    </ProtectedRoute>
+                  }
+                />
 
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </Suspense>
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </Suspense>
+          </div>
+        </div>
       </div>
     </HashRouter>
   );

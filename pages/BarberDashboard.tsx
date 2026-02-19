@@ -367,7 +367,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
         <main className="flex-1 overflow-y-auto no-scrollbar">
           {/* Main Revenue Card */}
           <section className="px-4 pt-4">
-            <div className="relative overflow-hidden rounded-[2.5rem] bg-surface-dark p-6 shadow-2xl shadow-primary/20 border border-white/5">
+            <div className="relative overflow-hidden rounded-[2.5rem] glass p-6 shadow-2xl shadow-primary/20 border border-white/5">
               <div className="absolute -right-8 -top-8 size-40 rounded-full bg-primary/10 blur-3xl"></div>
               <div className="absolute -left-8 -bottom-8 size-40 rounded-full bg-primary/5 blur-3xl"></div>
 

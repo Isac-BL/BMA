@@ -60,11 +60,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
 
             setAvatarUrl(publicUrl);
             setMessage({ type: 'success', text: 'Foto carregada! Clique em SALVAR para confirmar.' });
-        } catch (err: any) {
-            console.error('Erro detalhado do upload:', err);
+        } catch (err) {
+            const error = err as Error;
+            console.error('Erro detalhado do upload:', error);
             setMessage({
                 type: 'error',
-                text: `Erro ao carregar: ${err.message || 'Verifique sua conexão ou tente outra imagem.'}`
+                text: `Erro ao carregar: ${error.message || 'Verifique sua conexão ou tente outra imagem.'}`
             });
         } finally {
             setUploading(false);
@@ -120,11 +121,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
             }
 
             setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
-        } catch (err: any) {
-            console.error('Error updating profile:', err);
+        } catch (err) {
+            const error = err as Error;
+            console.error('Error updating profile:', error);
             setMessage({
                 type: 'error',
-                text: `Erro ao salvar perfil: ${err.message || 'Tente novamente.'}`
+                text: `Erro ao salvar perfil: ${error.message || 'Tente novamente.'}`
             });
         } finally {
             setLoading(false);
@@ -158,11 +160,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
                 await supabase.auth.signOut();
                 navigate('/');
             }
-        } catch (err: any) {
-            console.error('Erro ao excluir conta:', err);
+        } catch (err) {
+            const error = err as Error;
+            console.error('Erro ao excluir conta:', error);
             setMessage({
                 type: 'error',
-                text: `Erro ao excluir conta: ${err.message || 'Tente novamente.'}`
+                text: `Erro ao excluir conta: ${error.message || 'Tente novamente.'}`
             });
             setShowDeleteConfirm(false);
         } finally {
