@@ -57,7 +57,8 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
         }
     };
 
-    const fetchNextAppointment = async () => {
+    const fetchNextAppointment = async (retryCount = 0) => {
+        if (retryCount === 0) setLoading(true);
         try {
             const now = new Date().toISOString().split('T')[0];
             const { data, error } = await supabase
@@ -80,7 +81,11 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                 setNextAppointment(data);
             }
         } catch (err) {
-            console.error('Error fetching next appointment:', err);
+            console.error(`Error fetching next appointment (attempt ${retryCount + 1}):`, err);
+            if (retryCount < 2) {
+                setTimeout(() => fetchNextAppointment(retryCount + 1), (retryCount + 1) * 1000);
+                return;
+            }
         } finally {
             setLoading(false);
         }
@@ -183,7 +188,13 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                             <div className="size-12 bg-white/5 rounded-2xl flex items-center justify-center text-white/20">
                                 <span className="material-symbols-outlined">calendar_today</span>
                             </div>
-                            <p className="text-white/40 text-sm font-medium">Nenhum agendamento pendente</p>
+                            <p className="text-white/40 text-sm font-medium mb-2">Nenhum agendamento pendente</p>
+                            <button
+                                onClick={() => fetchNextAppointment()}
+                                className="px-4 py-2 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/20 transition-all"
+                            >
+                                Recarregar
+                            </button>
                         </div>
                     )}
                 </section>

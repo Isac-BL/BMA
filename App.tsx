@@ -53,7 +53,7 @@ const App: React.FC = () => {
         // Add a timeout to prevent infinite loading
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
-          setTimeout(() => resolve({ data: { session: null } }), 10000)
+          setTimeout(() => resolve({ data: { session: null } }), 15000)
         );
 
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
@@ -114,47 +114,37 @@ const App: React.FC = () => {
 
   const fetchProfile = async (id: string, email: string) => {
     try {
+      // 1. Get current session metadata for immediate "provisional" user
       const { data: { session } } = await supabase.auth.getSession();
       const metadata = session?.user?.user_metadata || {};
 
-      // Timeout for profile fetch
-      const profilePromise = supabase
+      // Use route hint if metadata role is missing
+      const provisionalRole = (metadata.role as UserRole) ||
+        (window.location.hash.includes('/barber') ? UserRole.BARBER : UserRole.CLIENT);
+
+      // SET PROVISIONAL USER IMMEDIATELY
+      // This prevents the "Usuário" name and "Nothing saved" empty dashboard
+      // because the dashboards will have a valid user.id and user.role to work with.
+      setUser({
+        id,
+        name: metadata.name || 'Usuário',
+        email: email,
+        role: provisionalRole,
+        avatar: metadata.avatar_url
+      });
+
+      // STOP BLOCKING THE UI ASAP
+      setLoading(false);
+
+      // 2. Fetch full profile from DB in background to get extra details (zoom, positioning)
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', id)
         .single();
 
-      const timeoutPromise = new Promise<{ data: Record<string, any> | null; error: any }>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout fetching profile')), 10000)
-      );
-
-      let data, error;
-      try {
-        const result = await Promise.race([profilePromise, timeoutPromise]);
-        data = result.data;
-        error = result.error;
-      } catch (e) {
-        console.warn('Profile fetch timed out, falling back to metadata');
-        error = { code: 'TIMEOUT' };
-      }
-
-      if (error) {
-        // If profile missing or timeout, check metadata role carefully
-        console.warn('Profile not found or error, using session metadata.', error);
-
-        // Determine role: prefer metadata, then check if we are on a barber route as a hint, 
-        // but default to CLIENT only as a last resort.
-        const fallbackRole = (metadata.role as UserRole) ||
-          (window.location.hash.includes('/barber') ? UserRole.BARBER : UserRole.CLIENT);
-
-        setUser({
-          id,
-          name: metadata.name || 'Usuário',
-          email: email,
-          role: fallbackRole,
-          avatar: metadata.avatar_url
-        });
-      } else {
+      if (!error && data) {
+        // Update with full data once arrived
         setUser({
           id: data.id,
           name: data.name || metadata.name || 'Usuário',
@@ -167,16 +157,7 @@ const App: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error in fetchProfile:', error);
-      // Fallback with route hint
-      const fallbackRole = window.location.hash.includes('/barber') ? UserRole.BARBER : UserRole.CLIENT;
-      setUser({
-        id,
-        name: 'Usuário',
-        email: email,
-        role: fallbackRole,
-      });
-    } finally {
+      console.error('Error in fetchProfile background task:', error);
       setLoading(false);
     }
   };

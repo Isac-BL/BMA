@@ -205,7 +205,8 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
     navigate('/barber/book/schedule');
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (retryCount = 0) => {
+    if (retryCount === 0) setLoading(true);
     try {
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
@@ -310,7 +311,12 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
       });
 
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
+      console.error(`Error fetching dashboard data (attempt ${retryCount + 1}):`, err);
+      if (retryCount < 2) {
+        // Retry with exponential backoff (1s, 2s)
+        setTimeout(() => fetchDashboardData(retryCount + 1), (retryCount + 1) * 1000);
+        return;
+      }
     } finally {
       setLoading(false);
     }
@@ -433,7 +439,13 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
             ) : (
               <div className="flex flex-col items-center justify-center py-12 rounded-3xl bg-white/50 dark:bg-surface-dark/20 border border-dashed border-slate-200 dark:border-white/5">
                 <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-white/10 mb-2">event_busy</span>
-                <p className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest">Sem agendamentos próximos</p>
+                <p className="text-xs font-bold text-slate-400 dark:text-gray-500 uppercase tracking-widest mb-4">Sem agendamentos próximos</p>
+                <button
+                  onClick={() => fetchDashboardData()}
+                  className="px-4 py-2 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-primary/20 transition-all"
+                >
+                  Recarregar
+                </button>
               </div>
             )}
           </section>
