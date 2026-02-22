@@ -375,7 +375,7 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                                         >
                                             <span className={isFullyOccupied ? 'animate-pulse' : ''}>{time}</span>
                                             <div className={`text-[7px] mt-0.5 opacity-50 ${isFullyOccupied ? 'block' : 'hidden'}`}>LOTADO</div>
-                                            {isPartiallyOccupied && <div className={`text-[7px] mt-0.5 opacity-40 block`}>{barberCount - count} {barberCount - count === 1 ? 'VAGA' : 'VAGAS'}</div>}
+                                            {isPartiallyOccupied && <div className={`text-[7px] mt-0.5 opacity-40 block`}>{barberCount - count} {barberCount - count === 1 ? 'VAGA DISPONÍVEL' : 'VAGAS DISPONÍVEIS'}</div>}
                                             {!occupied && <div className="text-[7px] mt-0.5 opacity-0">LIVRE</div>}
                                         </div>
                                     );
@@ -390,7 +390,7 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <div className="size-2 rounded-full bg-primary/5 border border-primary/20"></div>
-                                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Vagas</span>
+                                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Disponível</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <div className="size-2 rounded-full bg-white/5 border border-white/10"></div>

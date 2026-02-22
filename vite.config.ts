@@ -85,7 +85,7 @@ export default defineConfig(({ mode }) => {
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],
             'scheduler': ['./scheduler.ts'],
             'supabase': ['@supabase/supabase-js'],
-            'ui-libs': ['@vercel/speed-insights']
+            'ui-libs': ['@vercel/speed-insights/react']
           }
         }
       }

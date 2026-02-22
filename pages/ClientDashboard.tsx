@@ -84,6 +84,19 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
     }
   };
 
+  const handleClearNotifications = async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id);
+      if (error) throw error;
+      setNotifications([]);
+    } catch (err) {
+      console.error('Error clearing notifications:', err);
+    }
+  };
+
   const fetchAppointments = async () => {
     try {
       const { data, error } = await supabase
@@ -196,7 +209,14 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-background-dark/80 backdrop-blur-sm animate-in fade-in duration-300 px-4 pb-8">
           <div className="w-full max-w-md bg-surface-dark rounded-[2.5rem] border border-white/5 p-6 shadow-2xl animate-in slide-in-from-bottom duration-500 max-h-[80vh] flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-white font-black text-xl tracking-tight">Notificações</h3>
+              <div>
+                <h3 className="text-white font-black text-xl tracking-tight">Notificações</h3>
+                {notifications.length > 0 && (
+                  <button onClick={handleClearNotifications} className="text-[10px] font-black text-primary hover:text-red-500 uppercase tracking-widest mt-1 transition-colors">
+                    Limpar Tudo
+                  </button>
+                )}
+              </div>
               <button onClick={() => setShowNotifications(false)} className="size-10 bg-white/5 rounded-full flex items-center justify-center text-white/40 hover:text-white transition-colors">
                 <span className="material-symbols-outlined">close</span>
               </button>

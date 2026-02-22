@@ -177,7 +177,6 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
       setAppointments(prev => prev.map(app => app.id === appointmentId ? { ...app, status: 'cancelled_barber' } : app));
       // Notify Client
       const targetApp = appointments.find(a => a.id === appointmentId);
-      console.log('Target appointment for notification:', targetApp);
 
       if (targetApp?.client_id) {
         const { error: notifError } = await supabase.from('notifications').insert([{

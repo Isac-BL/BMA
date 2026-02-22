@@ -30,7 +30,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
         try {
             setUploading(true);
             setMessage(null);
-            console.log('Iniciando upload...', file.name);
 
             const fileExt = file.name.split('.').pop();
             const fileName = `${user.id}-${Date.now()}.${fileExt}`;
@@ -328,26 +327,24 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
                         </button>
                     </div>
 
-                    {user.role === 'BARBER' && (
-                        <div className="pt-10 pb-6">
-                            <div className="p-6 rounded-[2rem] border border-red-500/20 bg-red-500/5 space-y-4">
-                                <div className="flex items-center gap-2 text-red-500">
-                                    <span className="material-symbols-outlined">warning</span>
-                                    <h3 className="text-sm font-black uppercase tracking-widest">Zona de Perigo</h3>
-                                </div>
-                                <p className="text-xs text-white/50 leading-relaxed">
-                                    Ao excluir sua conta, todos os seus dados, serviços e agendamentos serão removidos permanentemente. Esta ação não pode ser desfeita.
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                    className="w-full h-12 rounded-xl border border-red-500/50 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all active:scale-95"
-                                >
-                                    Excluir Minha Conta
-                                </button>
+                    <div className="pt-10 pb-6">
+                        <div className="p-6 rounded-[2rem] border border-red-500/20 bg-red-500/5 space-y-4">
+                            <div className="flex items-center gap-2 text-red-500">
+                                <span className="material-symbols-outlined">warning</span>
+                                <h3 className="text-sm font-black uppercase tracking-widest">Zona de Perigo</h3>
                             </div>
+                            <p className="text-xs text-white/50 leading-relaxed">
+                                Ao excluir sua conta, todos os seus dados e agendamentos serão removidos permanentemente. Esta ação não pode ser desfeita.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteConfirm(true)}
+                                className="w-full h-12 rounded-xl border border-red-500/50 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all active:scale-95"
+                            >
+                                Excluir Minha Conta
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </form>
             </main>
 

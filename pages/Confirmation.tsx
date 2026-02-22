@@ -243,8 +243,6 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
         if (notifError) {
           console.error('Error sending notifications during confirmation:', notifError);
           alert(`Agendamento realizado, mas houve uma instabilidade ao enviar as notificações.`);
-        } else {
-          console.log('Notifications sent successfully:', notifications);
         }
       }
 
