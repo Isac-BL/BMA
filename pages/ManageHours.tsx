@@ -10,7 +10,7 @@ interface ManageHoursProps {
   onLogout: () => void;
 }
 
-type HourData = Record<string, { active: boolean; intervals: Interval[] }>;
+type HourData = Record<string, { id?: string; active: boolean; intervals: Interval[] }>;
 
 const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
   const [loading, setLoading] = useState(true);
@@ -41,6 +41,7 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
       days.forEach((day, index) => {
         const found = hours?.find(h => h.day_of_week === index);
         hoursMap[day] = {
+          id: found?.id,
           active: found?.active ?? false,
           intervals: found?.intervals ?? [{ start: '08:00', end: '12:00' }, { start: '13:00', end: '18:00' }]
         };
@@ -57,26 +58,39 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
   const saveHours = async (day: string) => {
     setSaving(true);
     try {
-      const { active, intervals } = workingHours[day];
+      const { id, active, intervals } = workingHours[day];
       const dayIndex = days.indexOf(day);
 
       const startTime = intervals.length > 0 ? intervals[0].start : '08:00';
       const endTime = intervals.length > 0 ? intervals[intervals.length - 1].end : '18:00';
 
-      const { error } = await supabase
+      const upsertData: any = {
+        barber_id: user.id,
+        day_of_week: dayIndex,
+        active,
+        intervals,
+        start_time: startTime,
+        end_time: endTime
+      };
+
+      if (id) upsertData.id = id;
+
+      const { data, error } = await supabase
         .from('working_hours')
-        .upsert({
-          barber_id: user.id,
-          day_of_week: dayIndex,
-          active,
-          intervals,
-          start_time: startTime,
-          end_time: endTime
-        }, {
-          onConflict: 'barber_id,day_of_week'
-        });
+        .upsert(upsertData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Update local state with the newly created ID if it was an insert
+      if (data && !id) {
+        setWorkingHours(prev => ({
+          ...prev,
+          [day]: { ...prev[day], id: data.id }
+        }));
+      }
+
       alert('Horários salvos com sucesso!');
     } catch (err) {
       const error = err as Error;
