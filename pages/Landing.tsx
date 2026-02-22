@@ -56,7 +56,7 @@ const Landing: React.FC = () => {
     <div className="bg-background-light dark:bg-background-dark font-display text-[#111418] dark:text-white min-h-screen flex flex-col antialiased selection:bg-primary selection:text-background-dark overflow-x-hidden">
       <div className="fixed inset-0 pointer-events-none opacity-0 dark:opacity-100 mix-blend-soft-light z-0" style={{ background: 'radial-gradient(circle at 50% 10%, #2d281a 0%, #221e10 60%, #181611 100%)' }}>
       </div>
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-between w-full max-w-md mx-auto px-6 pt-12 pb-8 h-full min-h-screen">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-between w-full max-w-md mx-auto px-6 pt-12 pb-8 h-full min-h-screen will-change-transform">
         <div className="flex flex-col items-center w-full mt-8 animate-fade-in">
           <div className="relative mb-8 group">
             <div className="absolute inset-0 bg-primary rounded-full blur-2xl opacity-20 group-hover:opacity-30 transition-opacity duration-500"></div>

@@ -289,7 +289,7 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
   return (
     <div className="relative flex h-full min-h-screen w-full flex-col pb-40 max-w-md mx-auto bg-background-dark text-white font-display overflow-x-hidden">
       {/* Header */}
-      <div className="sticky top-0 z-50 flex items-center bg-background-dark/95 backdrop-blur-md p-4 pb-2 justify-between border-b border-white/5">
+      <div className="sticky top-0 z-50 flex items-center bg-background-dark/80 backdrop-blur-xl p-4 pb-2 justify-between border-b border-white/5 will-change-transform">
         <button
           onClick={() => navigate(-1)}
           className="size-11 flex items-center justify-center rounded-2xl bg-white/5 text-white/60 hover:text-white transition-all active:scale-95"
@@ -327,14 +327,19 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
                 <div
                   key={b.id}
                   onClick={() => handleSelectBarber(b)}
-                  className="flex flex-col items-center gap-2 cursor-pointer group"
+                  className="flex flex-col items-center gap-2 cursor-pointer group shrink-0"
                 >
                   <div
-                    className={`w-[72px] h-[72px] rounded-full border-2 bg-cover bg-center transition-all duration-300 relative ${isSelected ? 'border-primary ring-4 ring-primary/20 scale-110 shadow-gold' : 'border-white/5 opacity-40 group-hover:opacity-70 grayscale'}`}
-                    style={{ backgroundImage: `url(${b.avatar || 'https://ih1.redbubble.net/image.1024340084.6729/flat,750x,075,f-pad,750x1000,f8f8f8.jpg'})` }}
+                    className={`w-[72px] h-[72px] rounded-full border-2 overflow-hidden transition-all duration-300 relative ${isSelected ? 'border-primary ring-4 ring-primary/20 scale-110 shadow-gold' : 'border-white/5 opacity-40 group-hover:opacity-70 grayscale'}`}
                   >
+                    <img
+                      src={b.avatar || 'https://ih1.redbubble.net/image.1024340084.6729/flat,750x,075,f-pad,750x1000,f8f8f8.jpg'}
+                      alt={b.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
                     {isSelected && (
-                      <div className="absolute -bottom-1 -right-1 size-6 bg-primary rounded-full border-2 border-background-dark flex items-center justify-center">
+                      <div className="absolute -bottom-1 -right-1 z-10 size-6 bg-primary rounded-full border-2 border-background-dark flex items-center justify-center">
                         <span className="material-symbols-outlined text-background-dark text-sm font-black">check</span>
                       </div>
                     )}

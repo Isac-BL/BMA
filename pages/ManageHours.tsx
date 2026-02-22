@@ -191,7 +191,7 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
         onLogout={onLogout}
       />
       <div className="relative flex min-h-screen w-full flex-col max-w-md mx-auto overflow-hidden bg-background-light dark:bg-background-dark shadow-2xl pb-24">
-        <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-gray-200 dark:border-white/5">
+        <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-gray-200 dark:border-white/5 will-change-transform">
           <div className="flex items-center gap-3">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-surface-dark transition-colors relative text-slate-900 dark:text-white">
               <span className="material-symbols-outlined">menu</span>

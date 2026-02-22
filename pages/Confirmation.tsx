@@ -274,7 +274,7 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
 
   return (
     <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden max-w-md mx-auto bg-background-dark">
-      <header className="flex items-center justify-between px-4 py-4 sticky top-0 z-10 bg-background-dark/95 backdrop-blur-md border-b border-white/5">
+      <header className="flex items-center justify-between px-4 py-4 sticky top-0 z-10 bg-background-dark/80 backdrop-blur-xl border-b border-white/5 will-change-transform">
         <button onClick={() => navigate(-1)} className="size-10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
           <span className="material-symbols-outlined">arrow_back_ios</span>
         </button>
@@ -321,10 +321,14 @@ const Confirmation: React.FC<ConfirmationProps> = ({ bookingState, user }) => {
         </div>
 
         <div className="bg-surface-dark p-6 rounded-3xl border border-white/5 flex items-center gap-4">
-          <div
-            className="size-14 rounded-full bg-cover bg-center border-2 border-primary/20"
-            style={{ backgroundImage: `url(${bookingState.barber.avatar || 'https://ih1.redbubble.net/image.1024340084.6729/flat,750x,075,f-pad,750x1000,f8f8f8.jpg'})` }}
-          ></div>
+          <div className="size-14 rounded-full overflow-hidden border-2 border-primary/20 shrink-0">
+            <img
+              src={bookingState.barber.avatar || 'https://ih1.redbubble.net/image.1024340084.6729/flat,750x,075,f-pad,750x1000,f8f8f8.jpg'}
+              alt={bookingState.barber.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
           <div className="flex-1">
             <p className="text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-1">Barbeiro</p>
             <p className="text-white font-black text-lg">{bookingState.barber.name}</p>

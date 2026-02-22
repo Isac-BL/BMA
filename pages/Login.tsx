@@ -171,7 +171,7 @@ const Login: React.FC = () => {
           </div>
         </div>
         <div className="flex-1 flex flex-col px-6 py-4 gap-6">
-          <div className="glass rounded-[2.5rem] p-6 border-white/5 shadow-2xl">
+          <div className="glass rounded-[2.5rem] p-6 border-white/5 shadow-2xl animate-in slide-in-from-bottom duration-500 will-change-transform">
             <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
               {error && <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm text-center font-bold tracking-tight">{error}</div>}
               {success && <div className="p-3 bg-green-500/10 border border-green-500/50 rounded-lg text-green-500 text-sm text-center font-bold tracking-tight">{success}</div>}

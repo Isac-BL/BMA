@@ -174,7 +174,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
 
     return (
         <div className="relative flex h-full min-h-screen w-full flex-col overflow-hidden max-w-md mx-auto bg-background-dark text-white">
-            <header className="flex items-center justify-between px-4 py-4 sticky top-0 z-10 bg-background-dark/95 backdrop-blur-md border-b border-white/5">
+            <header className="flex items-center justify-between px-4 py-4 sticky top-0 z-10 bg-background-dark/80 backdrop-blur-xl border-b border-white/5 will-change-transform">
                 <button onClick={() => navigate(-1)} className="size-10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
                     <span className="material-symbols-outlined">arrow_back_ios</span>
                 </button>
@@ -186,14 +186,21 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
                 <div className="flex flex-col items-center gap-4">
                     <div className="relative">
                         <div
-                            className={`size-32 rounded-3xl bg-cover bg-center ring-4 ring-primary/20 shadow-2xl transition-all duration-300 overflow-hidden bg-surface-dark flex items-center justify-center ${uploading ? 'scale-95 opacity-50' : ''}`}
-                            style={{
-                                backgroundImage: avatarUrl ? `url("${avatarUrl}")` : 'none',
-                                backgroundPosition: `${posX}% ${posY}%`,
-                                backgroundSize: `${zoom}%`
-                            }}
+                            className={`size-32 rounded-3xl overflow-hidden ring-4 ring-primary/20 shadow-2xl transition-all duration-300 bg-surface-dark flex items-center justify-center ${uploading ? 'scale-95 opacity-50' : ''}`}
                         >
-                            {!avatarUrl && !uploading && <span className="material-symbols-outlined text-4xl text-white/10">person</span>}
+                            {avatarUrl ? (
+                                <img
+                                    src={avatarUrl}
+                                    alt="Profile"
+                                    className="w-full h-full object-cover"
+                                    style={{
+                                        objectPosition: `${posX}% ${posY}%`,
+                                        transform: `scale(${zoom / 100})`
+                                    }}
+                                />
+                            ) : (
+                                !uploading && <span className="material-symbols-outlined text-4xl text-white/10">person</span>
+                            )}
                             {uploading && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-background-dark/40">
                                     <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full shadow-gold"></div>
@@ -351,7 +358,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdate, onLogout }) => {
             {/* Modal de Confirmação de Exclusão */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-dark/80 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="w-full max-w-sm bg-surface-dark rounded-[2.5rem] border border-white/5 p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="w-full max-w-sm bg-surface-dark rounded-[2.5rem] border border-white/5 p-8 shadow-2xl animate-in zoom-in-95 duration-300 will-change-transform">
                         <div className="size-20 bg-red-500/10 rounded-[2rem] flex items-center justify-center text-red-500 mx-auto mb-6">
                             <span className="material-symbols-outlined text-4xl">delete_forever</span>
                         </div>

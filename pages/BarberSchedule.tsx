@@ -327,7 +327,7 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                 onLogout={onLogout}
             />
             {/* Top App Bar */}
-            <header className="flex-none bg-white dark:bg-background-dark pt-4 border-b border-gray-100 dark:border-white/5">
+            <header className="flex-none bg-white dark:bg-background-dark pt-2 border-b border-gray-100 dark:border-white/5 will-change-transform">
                 <div className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-3">
                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-surface-dark transition-colors relative text-slate-900 dark:text-white">
@@ -424,7 +424,14 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                                                                         <div>
                                                                             <div className="flex items-center gap-3">
                                                                                 {app.client?.avatar_url && (
-                                                                                    <div className="size-8 rounded-full bg-cover bg-center border border-white/10 shrink-0" style={{ backgroundImage: `url(${app.client.avatar_url})` }}></div>
+                                                                                    <div className="size-8 rounded-full overflow-hidden border border-white/10 shrink-0">
+                                                                                        <img
+                                                                                            src={app.client.avatar_url}
+                                                                                            alt="Client"
+                                                                                            className="w-full h-full object-cover"
+                                                                                            loading="lazy"
+                                                                                        />
+                                                                                    </div>
                                                                                 )}
                                                                                 <h3 className={`text-white font-black text-lg leading-tight ${app.status.startsWith('cancelled') ? 'line-through decoration-red-500/50' : ''}`}>
                                                                                     {app.client?.name || app.client_name || 'Cliente Manual'}
@@ -664,7 +671,7 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                     });
                     navigate('/barber/book/services');
                 }}
-                className="absolute bottom-28 right-6 size-14 bg-primary hover:bg-[#c9a026] text-background-dark rounded-full shadow-gold flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50"
+                className="absolute bottom-28 right-6 size-14 bg-primary hover:bg-[#c9a026] text-background-dark rounded-full shadow-gold flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-50 will-change-transform"
             >
                 <span className="material-symbols-outlined text-3xl font-black">add</span>
             </button>

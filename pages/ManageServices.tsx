@@ -128,7 +128,7 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
       />
 
       {/* Top App Bar */}
-      <header className="shrink-0 z-20 bg-background-dark/95 backdrop-blur-md border-b border-[#2d2a22] sticky top-0">
+      <header className="shrink-0 z-20 bg-background-dark/80 backdrop-blur-xl border-b border-[#2d2a22] sticky top-0 will-change-transform">
         <div className="flex items-center px-4 py-3 justify-between max-w-md mx-auto">
           <button
             onClick={() => navigate(-1)}
@@ -164,7 +164,7 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
             return (
               <div
                 key={service.id}
-                className={`group relative flex flex-col sm:flex-row gap-4 p-4 rounded-xl border transition-all duration-300 ${isCombo
+                className={`group relative flex flex-col sm:flex-row gap-4 p-4 rounded-xl border transition-all duration-300 will-change-transform ${isCombo
                   ? 'bg-gradient-to-br from-surface-dark to-[#2A271E] border-primary/20 shadow-soft hover:border-primary/40'
                   : 'bg-surface-dark border-[#2d2a22] shadow-soft hover:border-primary/30 hover:shadow-glow'
                   }`}
@@ -231,7 +231,7 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
         <div className="max-w-md mx-auto pointer-events-auto">
           <button
             onClick={() => { setEditingService({ name: '', price: 0, duration: 30 }); setIsModalOpen(true); }}
-            className="w-full cursor-pointer flex items-center justify-center rounded-xl h-14 px-6 bg-primary hover:bg-[#cda224] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(225,180,45,0.3)] text-[#171611] gap-3 text-base font-bold tracking-[0.015em]"
+            className="w-full cursor-pointer flex items-center justify-center rounded-xl h-14 px-6 bg-primary hover:bg-[#cda224] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(225,180,45,0.3)] text-[#171611] gap-3 text-base font-bold tracking-[0.015em] will-change-transform"
           >
             <span className="material-symbols-outlined text-[24px]">add</span>
             <span className="truncate">Adicionar Serviço</span>
@@ -242,7 +242,7 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
       {/* Modal for Add/Edit */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 bg-background-dark/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-surface-dark w-full max-w-sm rounded-[2.5rem] border border-white/5 p-8 shadow-2xl animate-in slide-in-from-bottom duration-500">
+          <div className="bg-surface-dark w-full max-w-sm rounded-[2.5rem] border border-white/5 p-8 shadow-2xl animate-in slide-in-from-bottom duration-500 will-change-transform">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-white font-black text-xl uppercase tracking-tight">
                 {editingService?.id ? 'Editar Serviço' : 'Novo Serviço'}

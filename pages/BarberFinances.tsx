@@ -109,7 +109,7 @@ const BarberFinances: React.FC<BarberFinancesProps> = ({ user, onLogout }) => {
 
             <div className="relative flex min-h-screen flex-col overflow-x-hidden pb-[80px] max-w-md mx-auto bg-background-light dark:bg-background-dark shadow-2xl">
                 {/* Top App Bar */}
-                <header className="sticky top-0 z-30 flex items-center justify-between bg-background-light/95 px-4 py-4 backdrop-blur-md dark:bg-background-dark/95 border-b border-gray-100 dark:border-white/5">
+                <header className="sticky top-0 z-30 flex items-center justify-between bg-background-light/95 px-4 py-4 backdrop-blur-md dark:bg-background-dark/95 border-b border-gray-100 dark:border-white/5 will-change-transform">
                     <div className="flex items-center gap-3">
                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-surface-dark transition-colors relative text-slate-900 dark:text-white">
                             <span className="material-symbols-outlined">menu</span>
@@ -232,14 +232,18 @@ const BarberFinances: React.FC<BarberFinancesProps> = ({ user, onLogout }) => {
                                     return filteredHistory.map((app) => (
                                         <div key={app.id} className="group relative flex items-center justify-between rounded-3xl bg-white p-4 shadow-soft transition-all hover:bg-slate-50 dark:bg-surface-dark dark:hover:bg-surface-dark/60 border border-slate-100 dark:border-white/5">
                                             <div className="flex items-center gap-4">
-                                                <div
-                                                    className="bg-center bg-no-repeat aspect-square bg-cover rounded-2xl h-14 w-14 shadow-inner ring-1 ring-gray-100 dark:ring-white/10"
-                                                    style={{
-                                                        backgroundImage: `url("${app.client?.avatar_url || 'https://ih1.redbubble.net/image.1024340084.6729/flat,750x,075,f-pad,750x1000,f8f8f8.jpg'}")`,
-                                                        backgroundPosition: `${app.client?.avatar_pos_x ?? 50}% ${app.client?.avatar_pos_y ?? 50}%`,
-                                                        backgroundSize: `${app.client?.avatar_zoom ?? 100}%`
-                                                    }}
-                                                ></div>
+                                                <div className="size-14 rounded-2xl overflow-hidden ring-1 ring-gray-100 dark:ring-white/10 shrink-0">
+                                                    <img
+                                                        src={app.client?.avatar_url || 'https://ih1.redbubble.net/image.1024340084.6729/flat,750x,075,f-pad,750x1000,f8f8f8.jpg'}
+                                                        alt="Client"
+                                                        className="h-full w-full object-cover"
+                                                        loading="lazy"
+                                                        style={{
+                                                            objectPosition: `${app.client?.avatar_pos_x ?? 50}% ${app.client?.avatar_pos_y ?? 50}%`,
+                                                            transform: `scale(${(app.client?.avatar_zoom ?? 100) / 100})`
+                                                        }}
+                                                    />
+                                                </div>
                                                 <div className="flex flex-col justify-center gap-1">
                                                     <p className="text-base font-black leading-none text-slate-900 dark:text-white">{app.client?.name || 'Cliente'}</p>
                                                     <p className="text-[10px] font-bold text-primary uppercase tracking-widest truncate max-w-[150px]">

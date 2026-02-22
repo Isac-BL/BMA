@@ -179,16 +179,19 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
             {/* Background Ambient Effect */}
             <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-radial from-primary/10 via-transparent to-transparent opacity-50 pointer-events-none"></div>
 
-            <header className="sticky top-0 z-40 flex items-center bg-background-dark/80 backdrop-blur-xl p-6 justify-between border-b border-white/5">
+            <header className="sticky top-0 z-40 flex items-center bg-background-dark/80 backdrop-blur-xl p-6 justify-between border-b border-white/5 will-change-transform">
                 <div className="flex items-center gap-4">
-                    <div
-                        className="h-12 w-12 overflow-hidden rounded-2xl border-2 border-primary/20 bg-surface-dark bg-cover bg-center shadow-glow"
-                        style={{
-                            backgroundImage: `url(${user.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCtqFd9kXRuriwN1cEPJaLyCboKwOwEwYjCdnrh35EOMmO0K3JKVVbpW66iZGHPzh598PLFB_y1nBw3sG6zX_4nJOtypefF6mYbHPW2Pg_LFQetDTc2AxMf_O9PauILygQ27bLqnutTzBF_mAvkB4yDMoSSo4yI9g7JmuB_hCVaX8MJ82ULLJLKoyaNLU4dx-IsgTS0eEmZqUcJEymS2id4o5ItpuaMFNpjDVhyYyxLiGknlEAqs5-Odpsxsh2CZ0J2MJ84KRxboMc'})`,
-                            backgroundPosition: `${user.avatar_pos_x ?? 50}% ${user.avatar_pos_y ?? 50}%`,
-                            backgroundSize: `${user.avatar_zoom ?? 100}%`
-                        }}
-                    >
+                    <div className="h-12 w-12 overflow-hidden rounded-2xl border-2 border-primary/20 bg-surface-dark shadow-glow shrink-0">
+                        <img
+                            src={user.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCtqFd9kXRuriwN1cEPJaLyCboKwOwEwYjCdnrh35EOMmO0K3JKVVbpW66iZGHPzh598PLFB_y1nBw3sG6zX_4nJOtypefF6mYbHPW2Pg_LFQetDTc2AxMf_O9PauILygQ27bLqnutTzBF_mAvkB4yDMoSSo4yI9g7JmuB_hCVaX8MJ82ULLJLQoyaNLU4dx-IsgTS0eEmZqUcJEymS2id4o5ItpuaMFNpjDVhyYyxLiGknlEAqs5-Odpsxsh2CZ0J2MJ84KRxboMc'}
+                            alt="Profile"
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            style={{
+                                objectPosition: `${user.avatar_pos_x ?? 50}% ${user.avatar_pos_y ?? 50}%`,
+                                transform: `scale(${(user.avatar_zoom ?? 100) / 100})`
+                            }}
+                        />
                     </div>
                     <div className="flex flex-col">
                         <h1 className="text-white font-black text-xl tracking-tight leading-none group flex items-center gap-1.5">
@@ -406,7 +409,7 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
             {/* Notifications Modal */}
             {showNotifications && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-dark/80 backdrop-blur-xl animate-in fade-in duration-300">
-                    <div className="relative w-full max-w-sm h-[80vh] bg-surface-dark rounded-[2.5rem] border border-white/5 flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="relative w-full max-w-sm h-[80vh] bg-surface-dark rounded-[2.5rem] border border-white/5 flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 will-change-transform">
                         <div className="p-6 flex items-center justify-between border-b border-white/5">
                             <div>
                                 <h2 className="text-2xl font-black text-white tracking-tight">Notificações</h2>

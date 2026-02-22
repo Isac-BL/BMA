@@ -353,7 +353,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
 
       <div className="relative flex min-h-screen flex-col overflow-x-hidden pb-[80px] max-w-md mx-auto bg-background-light dark:bg-background-dark shadow-2xl">
         {/* Top App Bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between bg-background-light/95 px-4 py-4 backdrop-blur-md dark:bg-background-dark/95 border-b border-gray-100 dark:border-white/5">
+        <header className="sticky top-0 z-30 flex items-center justify-between bg-background-light/95 px-4 py-4 backdrop-blur-md dark:bg-background-dark/95 border-b border-gray-100 dark:border-white/5 will-change-transform">
           <div className="flex items-center gap-3">
             <button onClick={() => setIsSidebarOpen(true)} className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-surface-dark transition-colors relative text-slate-900 dark:text-white">
               <span className="material-symbols-outlined">menu</span>
@@ -432,9 +432,16 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
                 <div className="absolute left-0 top-0 h-full w-1.5 bg-primary"></div>
                 <div className="flex items-center gap-4">
                   {stats.nextAppointment.clientAvatar ? (
-                    <div className="size-14 rounded-2xl bg-cover bg-center border border-primary/20 shadow-glow" style={{ backgroundImage: `url(${stats.nextAppointment.clientAvatar})` }}></div>
+                    <div className="size-14 rounded-2xl overflow-hidden border border-primary/20 shadow-glow shrink-0">
+                      <img
+                        src={stats.nextAppointment.clientAvatar}
+                        alt="Client"
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
                   ) : (
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:scale-110 transition-transform shrink-0">
                       <span className="material-symbols-outlined text-3xl">person</span>
                     </div>
                   )}
@@ -581,7 +588,7 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
       {/* Notifications Modal */}
       {showNotifications && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background-dark/80 backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="relative w-full max-w-sm h-[80vh] bg-surface-dark rounded-[2.5rem] border border-white/5 flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="relative w-full max-w-sm h-[80vh] bg-surface-dark rounded-[2.5rem] border border-white/5 flex flex-col shadow-2xl animate-in zoom-in-95 duration-300 will-change-transform">
             <div className="p-6 flex items-center justify-between border-b border-white/5">
               <div>
                 <h2 className="text-2xl font-black text-white tracking-tight">Notificações</h2>

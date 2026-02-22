@@ -166,16 +166,19 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
       {/* Background Ambient Effect */}
       <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-radial from-primary/10 via-transparent to-transparent opacity-50 pointer-events-none"></div>
 
-      <div className="sticky top-0 z-40 flex items-center bg-background-dark/80 backdrop-blur-xl p-4 pb-4 justify-between border-b border-white/5">
+      <div className="sticky top-0 z-40 flex items-center bg-background-dark/80 backdrop-blur-xl p-4 pb-4 justify-between border-b border-white/5 will-change-transform">
         <div className="flex items-center gap-3">
-          <div
-            className="h-10 w-10 overflow-hidden rounded-full border border-primary/30 bg-surface-dark bg-cover bg-center"
-            style={{
-              backgroundImage: `url(${user.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCtqFd9kXRuriwN1cEPJaLyCboKwOwEwYjCdnrh35EOMmO0K3JKVVbpW66iZGHPzh598PLFB_y1nBw3sG6zX_4nJOtypefF6mYbHPW2Pg_LFQetDTc2AxMf_O9PauILygQ27bLqnutTzBF_mAvkB4yDMoSSo4yI9g7JmuB_hCVaX8MJ82ULLJLQoyaNLU4dx-IsgTS0eEmZqUcJEymS2id4o5ItpuaMFNpjDVhyXyxLiGknlEAqs5-Odpsxsh2CZ0J2MJ84KRxboMc'})`,
-              backgroundPosition: `${user.avatar_pos_x ?? 50}% ${user.avatar_pos_y ?? 50}%`,
-              backgroundSize: `${user.avatar_zoom ?? 100}%`
-            }}
-          >
+          <div className="h-10 w-10 overflow-hidden rounded-full border border-primary/30 bg-surface-dark shrink-0">
+            <img
+              src={user.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCtqFd9kXRuriwN1cEPJaLyCboKwOwEwYjCdnrh35EOMmO0K3JKVVbpW66iZGHPzh598PLFB_y1nBw3sG6zX_4nJOtypefF6mYbHPW2Pg_LFQetDTc2AxMf_O9PauILygQ27bLqnutTzBF_mAvkB4yDMoSSo4yI9g7JmuB_hCVaX8MJ82ULLJLQoyaNLU4dx-IsgTS0eEmZqUcJEymS2id4o5ItpuaMFNpjDVhyXyxLiGknlEAqs5-Odpsxsh2CZ0J2MJ84KRxboMc'}
+              alt="Profile"
+              className="h-full w-full object-cover"
+              loading="lazy"
+              style={{
+                objectPosition: `${user.avatar_pos_x ?? 50}% ${user.avatar_pos_y ?? 50}%`,
+                transform: `scale(${(user.avatar_zoom ?? 100) / 100})`
+              }}
+            />
           </div>
           <div className="flex flex-col">
             <p className="text-white text-sm font-bold leading-none">Olá, {user.name.split(' ')[0]}</p>
@@ -207,7 +210,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout, setBo
 
       {showNotifications && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-background-dark/80 backdrop-blur-sm animate-in fade-in duration-300 px-4 pb-8">
-          <div className="w-full max-w-md bg-surface-dark rounded-[2.5rem] border border-white/5 p-6 shadow-2xl animate-in slide-in-from-bottom duration-500 max-h-[80vh] flex flex-col">
+          <div className="w-full max-w-md bg-surface-dark rounded-[2.5rem] border border-white/5 p-6 shadow-2xl animate-in slide-in-from-bottom duration-500 max-h-[80vh] flex flex-col will-change-transform">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="text-white font-black text-xl tracking-tight">Notificações</h3>

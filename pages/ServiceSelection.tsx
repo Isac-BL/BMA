@@ -85,7 +85,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
 
   return (
     <div className="relative flex h-full min-h-screen w-full flex-col pb-32 max-w-md mx-auto bg-background-dark">
-      <div className="sticky top-0 z-20 flex items-center bg-background-dark/95 backdrop-blur-md p-4 pb-2 justify-between border-b border-white/5">
+      <div className="sticky top-0 z-20 flex items-center bg-background-dark/80 backdrop-blur-xl p-4 pb-2 justify-between border-b border-white/5 will-change-transform">
         <div
           onClick={() => navigate(user.role === 'BARBER' ? '/barber/schedule' : '/client')}
           className="text-white flex size-12 shrink-0 items-center justify-center rounded-full active:bg-white/10 transition-colors cursor-pointer"
@@ -127,7 +127,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
             <div
               key={service.id}
               onClick={() => handleSelect(service)}
-              className={`group relative flex flex-col gap-3 rounded-2xl bg-surface-dark p-4 shadow-soft border transition-all duration-300 cursor-pointer ${isSelected ? 'border-primary ring-1 ring-primary/20 shadow-glow' : 'border-white/5 active:border-primary/50'}`}
+              className={`group relative flex flex-col gap-3 rounded-2xl bg-surface-dark p-4 shadow-soft border transition-all duration-300 cursor-pointer will-change-transform ${isSelected ? 'border-primary ring-1 ring-primary/20 shadow-glow' : 'border-white/5 active:border-primary/50'}`}
             >
               {isSelected && (
                 <div className="absolute top-3 right-3">
@@ -163,7 +163,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
       </div>
 
       {totalSelected > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 bg-surface-dark/95 backdrop-blur-xl border-t border-white/10 p-5 pb-8 shadow-[0_-5px_30px_rgba(0,0,0,0.5)] max-w-md mx-auto rounded-t-[2rem]">
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-surface-dark/90 backdrop-blur-xl border-t border-white/10 p-5 pb-8 shadow-[0_-5px_30px_rgba(0,0,0,0.5)] max-w-md mx-auto rounded-t-[2rem] will-change-transform animate-in slide-in-from-bottom duration-300">
           <div className="flex justify-between items-center mb-4 px-1">
             <div className="flex flex-col">
               <span className="text-white/40 text-[10px] font-black uppercase tracking-widest">Total selecionado</span>
