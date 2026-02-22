@@ -16,7 +16,11 @@ export const supabase = createClient(
         auth: {
             persistSession: true,
             autoRefreshToken: true,
-            detectSessionInUrl: true
+            detectSessionInUrl: true,
+            storageKey: 'bma-barber-session', // Isolated key helps prevent lock contention
+        },
+        global: {
+            headers: { 'x-application-name': 'bma-barber-app' }
         }
     }
 );

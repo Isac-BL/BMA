@@ -91,11 +91,14 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
         {
           event: '*',
           schema: 'public',
-          table: 'appointments',
-          filter: `barber_id=eq.${user.id}`
+          table: 'appointments'
         },
-        () => {
-          fetchDashboardData();
+        (payload) => {
+          const newApp = payload.new as Appointment;
+          const oldApp = payload.old as Appointment;
+          if (newApp?.barber_id === user.id || oldApp?.barber_id === user.id) {
+            fetchDashboardData();
+          }
         }
       )
       .subscribe();

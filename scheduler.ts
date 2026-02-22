@@ -9,7 +9,7 @@ export const getAvailableSlots = (
 ): string[] => {
     // 1. Check if date is blocked or working hours inactive
     const isBlocked = blockedDays.some(bd => bd.blocked_date === date);
-    if (isBlocked || !workingHours || (workingHours.active === false)) {
+    if (isBlocked || !workingHours || workingHours.active === false) {
         return [];
     }
 

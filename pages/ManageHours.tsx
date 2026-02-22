@@ -63,41 +63,18 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
       const startTime = intervals.length > 0 ? intervals[0].start : '08:00';
       const endTime = intervals.length > 0 ? intervals[intervals.length - 1].end : '18:00';
 
-      // First check if it exists
-      const { data: existing } = await supabase
+      const { error } = await supabase
         .from('working_hours')
-        .select('id')
-        .eq('barber_id', user.id)
-        .eq('day_of_week', dayIndex)
-        .maybeSingle();
-
-      let error;
-      if (existing) {
-        // Update
-        const { error: updateError } = await supabase
-          .from('working_hours')
-          .update({
-            active,
-            intervals,
-            start_time: startTime,
-            end_time: endTime
-          })
-          .eq('id', existing.id);
-        error = updateError;
-      } else {
-        // Insert
-        const { error: insertError } = await supabase
-          .from('working_hours')
-          .insert({
-            barber_id: user.id,
-            day_of_week: dayIndex,
-            active,
-            intervals,
-            start_time: startTime,
-            end_time: endTime
-          });
-        error = insertError;
-      }
+        .upsert({
+          barber_id: user.id,
+          day_of_week: dayIndex,
+          active,
+          intervals,
+          start_time: startTime,
+          end_time: endTime
+        }, {
+          onConflict: 'barber_id,day_of_week'
+        });
 
       if (error) throw error;
       alert('Horários salvos com sucesso!');

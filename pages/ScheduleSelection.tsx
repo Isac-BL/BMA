@@ -141,7 +141,10 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
         name: b.name,
         email: '',
         role: b.role as UserRole,
-        avatar: b.avatar_url
+        avatar: b.avatar_url,
+        avatar_pos_x: b.avatar_pos_x,
+        avatar_pos_y: b.avatar_pos_y,
+        avatar_zoom: b.avatar_zoom
       }));
       setBarbers(mapped);
 
@@ -362,7 +365,10 @@ const ScheduleSelection: React.FC<ScheduleSelectionProps> = ({ bookingState, set
               const isSelected = selectedDate === d.full;
               const jsDay = d.dayOfWeek;
               const dbDay = jsDay === 0 ? 6 : jsDay - 1;
-              const isActive = workingHoursMap[dbDay] !== false; // Default to true if not loaded yet or undefined
+
+              // If we have data in the map, use it. If not, check if we've loaded anything at all.
+              // If Map is empty but we have a barber, it means we ARE loading or it's empty.
+              const isActive = workingHoursMap[dbDay] === true;
 
               return (
                 <button

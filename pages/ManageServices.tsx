@@ -19,8 +19,10 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchServices();
-  }, [user.id]);
+    if (user?.id) {
+      fetchServices();
+    }
+  }, [user?.id]);
 
   const fetchServices = async () => {
     setLoading(true);
@@ -152,9 +154,26 @@ const ManageServices: React.FC<ManageServicesProps> = ({ user, onLogout }) => {
 
         {/* Service Items */}
         {services.length === 0 ? (
-          <div className="py-20 text-center opacity-40">
-            <span className="material-symbols-outlined text-4xl mb-2">content_cut</span>
-            <p className="text-xs font-bold uppercase tracking-widest">Nenhum serviço cadastrado</p>
+          <div className="flex flex-col items-center justify-center py-20 px-10 text-center animate-in fade-in duration-700">
+            <div className="size-20 rounded-full bg-white/5 flex items-center justify-center mb-6 relative">
+              <div className="absolute inset-0 bg-primary/5 blur-xl rounded-full"></div>
+              <span className="material-symbols-outlined text-5xl text-white/10">content_cut</span>
+            </div>
+            <h3 className="text-white font-black text-xl mb-2">Sem serviços ainda</h3>
+            <p className="text-white/40 text-sm leading-relaxed mb-8">Você ainda não cadastrou nenhum serviço ou houve um erro ao carregar.</p>
+            <button
+              onClick={() => { setEditingService({ name: '', price: 30, duration: 30 }); setIsModalOpen(true); }}
+              className="px-8 h-14 bg-primary text-background-dark font-black rounded-2xl shadow-gold hover:scale-105 active:scale-95 transition-all uppercase tracking-tight"
+            >
+              Criar Primeiro Serviço
+            </button>
+            <button
+              onClick={() => fetchServices()}
+              className="mt-6 text-[10px] font-black text-white/20 uppercase tracking-[0.2em] hover:text-primary transition-colors flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-sm">refresh</span>
+              Tentar Recarregar
+            </button>
           </div>
         ) : (
           services.map(service => {

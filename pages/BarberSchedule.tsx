@@ -77,12 +77,14 @@ const BarberSchedule: React.FC<BarberScheduleProps & { onLogout: () => void }> =
                 {
                     event: '*', // Sync everything: increments, status changes, cancellations
                     schema: 'public',
-                    table: 'appointments',
-                    filter: `barber_id=eq.${user.id}`
+                    table: 'appointments'
                 },
-                () => {
-                    // Refetch data when any change happens in DB
-                    fetchScheduleData();
+                (payload) => {
+                    const newApp = payload.new as Appointment;
+                    const oldApp = payload.old as Appointment;
+                    if (newApp?.barber_id === user.id || oldApp?.barber_id === user.id) {
+                        fetchScheduleData();
+                    }
                 }
             )
             .subscribe();

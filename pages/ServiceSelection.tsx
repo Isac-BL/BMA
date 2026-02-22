@@ -21,7 +21,9 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
   }, []);
 
   const fetchServices = async () => {
+    setLoading(true);
     try {
+      console.log('Fetching services for user:', user?.id);
       const { data, error } = await supabase
         .from('services')
         .select('*')
@@ -29,11 +31,14 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
 
       if (error) throw error;
 
+      console.log('Fetched services count:', data?.length);
+
       const mappedServices: Service[] = (data || []).map((s) => ({
         ...s,
         price: typeof s.price === 'string' ? parseFloat(s.price) : s.price,
         icon: getServiceIcon(s.name)
       } as Service & { icon: string }));
+
       setServices(mappedServices);
     } catch (err) {
       console.error('Error fetching services:', err);
@@ -155,9 +160,18 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ bookingState, setBo
             </div>
           );
         }) : (
-          <div className="text-center py-20">
-            <span className="material-symbols-outlined text-6xl text-white/10 mb-4">content_cut</span>
-            <p className="text-white/40">Nenhum serviço encontrado.</p>
+          <div className="flex flex-col items-center justify-center py-20 px-10 text-center animate-in fade-in duration-700">
+            <div className="size-20 rounded-full bg-white/5 flex items-center justify-center mb-6 relative">
+              <div className="absolute inset-0 bg-primary/5 blur-xl rounded-full"></div>
+              <span className="material-symbols-outlined text-5xl text-white/10">content_cut</span>
+            </div>
+            <p className="text-white/40 text-sm leading-relaxed mb-6">Nenhum serviço encontrado. Isso pode acontecer se o barbeiro ainda não cadastrou os serviços ou se houve uma instabilidade na rede.</p>
+            <button
+              onClick={() => fetchServices()}
+              className="px-8 h-12 bg-white/5 text-primary border border-primary/20 font-black rounded-xl hover:bg-primary hover:text-background-dark transition-all uppercase text-[10px] tracking-widest"
+            >
+              Tentar Novamente
+            </button>
           </div>
         )}
       </div>
