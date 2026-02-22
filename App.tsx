@@ -222,9 +222,7 @@ const App: React.FC = () => {
                   path="/signup/:role"
                   element={
                     <PublicRoute user={user}>
-                      <PublicRoute user={user}>
-                        <Signup />
-                      </PublicRoute>
+                      <Signup />
                     </PublicRoute>
                   }
                 />

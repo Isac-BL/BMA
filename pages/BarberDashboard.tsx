@@ -121,6 +121,19 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
     }
   };
 
+  const handleClearNotifications = async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id);
+      if (error) throw error;
+      setNotifications([]);
+    } catch (err) {
+      console.error('Error clearing notifications:', err);
+    }
+  };
+
   // Handlers for barber actions
   const handleFinalize = async (appointmentId: string) => {
     try {
@@ -573,7 +586,14 @@ const BarberDashboard: React.FC<BarberDashboardProps> = ({ user, onLogout, setBo
             <div className="p-6 flex items-center justify-between border-b border-white/5">
               <div>
                 <h2 className="text-2xl font-black text-white tracking-tight">Notificações</h2>
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Sua Barba em Dia</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] font-black text-primary uppercase tracking-widest">Sua Barba em Dia</p>
+                  {notifications.length > 0 && (
+                    <button onClick={handleClearNotifications} className="text-[9px] font-black text-white/30 hover:text-red-500 uppercase tracking-widest transition-colors ml-2">
+                      Limpar
+                    </button>
+                  )}
+                </div>
               </div>
               <button onClick={() => setShowNotifications(false)} className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white transition-colors">
                 <span className="material-symbols-outlined">close</span>

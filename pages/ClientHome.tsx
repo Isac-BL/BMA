@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Service, Appointment, AppNotification } from '../types.ts';
 import { formatCurrency } from '../utils.ts';
@@ -16,10 +16,38 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
     const [loading, setLoading] = useState(true);
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [selectedScheduleDate, setSelectedScheduleDate] = useState(new Date().toISOString().split('T')[0]);
+    const [occupiedSlots, setOccupiedSlots] = useState<{ time: string, count: number }[]>([]);
+    const [loadingSchedule, setLoadingSchedule] = useState(false);
+    const [barberCount, setBarberCount] = useState(1);
+
+    const scheduleDates = useMemo(() => {
+        const d = [];
+        for (let i = 0; i < 7; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() + i);
+            d.push({
+                full: date.toISOString().split('T')[0],
+                day: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
+                num: date.getDate().toString()
+            });
+        }
+        return d;
+    }, []);
+
+    const timeSlots = useMemo(() => {
+        const slots = [];
+        for (let h = 8; h <= 19; h++) {
+            slots.push(`${String(h).padStart(2, '0')}:00`);
+            slots.push(`${String(h).padStart(2, '0')}:30`);
+        }
+        return slots;
+    }, []);
 
     useEffect(() => {
         fetchNextAppointment();
         fetchNotifications();
+        fetchBarberCount();
 
         // Subscribe to real-time notifications
         const channel = supabase
@@ -43,6 +71,48 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
         };
     }, [user.id]);
 
+    const fetchBarberCount = async () => {
+        const { count } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('role', 'BARBER');
+        if (count) setBarberCount(count);
+    };
+
+    // Separate effect for schedule overview to avoid recursive triggers or collisions
+    useEffect(() => {
+        fetchBarberSchedule();
+    }, [selectedScheduleDate]);
+
+    const fetchBarberSchedule = async () => {
+        setLoadingSchedule(true);
+        try {
+            const { data, error } = await supabase
+                .from('appointments')
+                .select('appointment_time, status')
+                .eq('appointment_date', selectedScheduleDate)
+                .not('status', 'ilike', 'cancelled%');
+
+            if (!error && data) {
+                // Group by time to see how many barbers are busy per slot
+                const counts: Record<string, number> = {};
+                data.forEach(app => {
+                    const time = app.appointment_time.substring(0, 5);
+                    counts[time] = (counts[time] || 0) + 1;
+                });
+
+                const mapped = Object.entries(counts).map(([time, count]) => ({ time, count }));
+                setOccupiedSlots(mapped);
+            } else {
+                setOccupiedSlots([]);
+            }
+        } catch (err) {
+            console.error('Error fetching barber schedule:', err);
+        } finally {
+            setLoadingSchedule(false);
+        }
+    };
+
     const fetchNotifications = async () => {
         try {
             const { data, error } = await supabase
@@ -54,6 +124,19 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
             if (!error) setNotifications(data || []);
         } catch (err) {
             console.error('Error fetching notifications:', err);
+        }
+    };
+
+    const handleClearNotifications = async () => {
+        try {
+            const { error } = await supabase
+                .from('notifications')
+                .delete()
+                .eq('user_id', user.id);
+            if (error) throw error;
+            setNotifications([]);
+        } catch (err) {
+            console.error('Error clearing notifications:', err);
         }
     };
 
@@ -241,6 +324,81 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                         </button>
                     </div>
                 </section>
+
+                {/* Barber Schedule Overview */}
+                <section className="space-y-6 pb-12">
+                    <div className="flex flex-col gap-1">
+                        <h2 className="text-xs font-black text-white/40 uppercase tracking-[0.25em]">Agenda da Barbearia</h2>
+                        <p className="text-[10px] text-primary font-black uppercase tracking-widest">Confira os horários preenchidos</p>
+                    </div>
+
+                    <div className="bg-surface-dark/30 rounded-[2.5rem] border border-white/5 p-6 space-y-6">
+                        {/* Internal Date Strip */}
+                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                            {scheduleDates.map((d, idx) => {
+                                const isSelected = selectedScheduleDate === d.full;
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setSelectedScheduleDate(d.full)}
+                                        className={`flex flex-col items-center justify-center min-w-[55px] h-16 rounded-2xl transition-all duration-300 ${isSelected ? 'bg-primary text-background-dark shadow-gold scale-105' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+                                    >
+                                        <span className={`text-[8px] font-black uppercase tracking-widest mb-1 ${isSelected ? 'text-background-dark/60' : 'text-white/30'}`}>{d.day}</span>
+                                        <span className="text-lg font-black">{d.num}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Slots Grid */}
+                        {loadingSchedule ? (
+                            <div className="flex flex-col items-center justify-center py-10 opacity-20">
+                                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mb-3"></div>
+                                <p className="text-[8px] font-black uppercase tracking-widest">Sincronizando...</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-4 gap-2 text-center">
+                                {timeSlots.map((time) => {
+                                    const occupied = occupiedSlots.find(s => s.time === time);
+                                    const count = occupied?.count || 0;
+                                    const isFullyOccupied = count >= barberCount;
+                                    const isPartiallyOccupied = count > 0 && count < barberCount;
+
+                                    return (
+                                        <div
+                                            key={time}
+                                            className={`py-2.5 rounded-xl text-[10px] font-black transition-all border ${isFullyOccupied
+                                                ? 'bg-primary/20 border-primary/30 text-primary shadow-[0_0_10px_rgba(225,180,45,0.1)]'
+                                                : isPartiallyOccupied
+                                                    ? 'bg-primary/5 border-primary/20 text-primary/60'
+                                                    : 'bg-white/5 border-white/5 text-white/20'}`}
+                                        >
+                                            <span className={isFullyOccupied ? 'animate-pulse' : ''}>{time}</span>
+                                            <div className={`text-[7px] mt-0.5 opacity-50 ${isFullyOccupied ? 'block' : 'hidden'}`}>LOTADO</div>
+                                            {isPartiallyOccupied && <div className={`text-[7px] mt-0.5 opacity-40 block`}>{barberCount - count} {barberCount - count === 1 ? 'VAGA' : 'VAGAS'}</div>}
+                                            {!occupied && <div className="text-[7px] mt-0.5 opacity-0">LIVRE</div>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-center gap-4 pt-2">
+                            <div className="flex items-center gap-1.5">
+                                <div className="size-2 rounded-full bg-primary/20 border border-primary/30"></div>
+                                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Lotado</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="size-2 rounded-full bg-primary/5 border border-primary/20"></div>
+                                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Vagas</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="size-2 rounded-full bg-white/5 border border-white/10"></div>
+                                <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Livre</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </main>
 
             <ClientNavigation />
@@ -252,7 +410,14 @@ const ClientHome: React.FC<ClientHomeProps> = ({ user, onLogout }) => {
                         <div className="p-6 flex items-center justify-between border-b border-white/5">
                             <div>
                                 <h2 className="text-2xl font-black text-white tracking-tight">Notificações</h2>
-                                <p className="text-[10px] font-black text-primary uppercase tracking-widest">Sua Barba em Dia</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Sua Barba em Dia</p>
+                                    {notifications.length > 0 && (
+                                        <button onClick={handleClearNotifications} className="text-[9px] font-black text-white/30 hover:text-red-500 uppercase tracking-widest transition-colors ml-2">
+                                            Limpar
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <button onClick={() => setShowNotifications(false)} className="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 text-white/40 hover:text-white transition-colors">
                                 <span className="material-symbols-outlined">close</span>

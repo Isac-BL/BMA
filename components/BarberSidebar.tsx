@@ -23,8 +23,7 @@ const BarberSidebar: React.FC<BarberSidebarProps> = ({ isOpen, onClose, user, on
 
     const secondaryItems = [
         { label: 'Meu Perfil', path: '/barber/profile', icon: 'person' },
-        { label: 'Relatórios', path: '/barber/reports', icon: 'analytics' },
-        { label: 'Configurações', path: '/barber/settings', icon: 'settings' },
+        { label: 'Relatórios', path: '/barber/finances', icon: 'analytics' },
     ];
 
     return (
