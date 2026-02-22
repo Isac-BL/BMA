@@ -61,41 +61,71 @@ const ManageHours: React.FC<ManageHoursProps> = ({ user, onLogout }) => {
       const { id, active, intervals } = workingHours[day];
       const dayIndex = days.indexOf(day);
 
-      const startTime = intervals.length > 0 ? intervals[0].start : '08:00';
-      const endTime = intervals.length > 0 ? intervals[intervals.length - 1].end : '18:00';
+      const performSave = async (retryCount = 0): Promise<void> => {
+        const startTime = intervals.length > 0 ? intervals[0].start : '08:00';
+        const endTime = intervals.length > 0 ? intervals[intervals.length - 1].end : '18:00';
 
-      const upsertData: any = {
-        barber_id: user.id,
-        day_of_week: dayIndex,
-        active,
-        intervals,
-        start_time: startTime,
-        end_time: endTime
+        const upsertData: any = {
+          barber_id: user.id,
+          day_of_week: dayIndex,
+          active,
+          intervals,
+          start_time: startTime,
+          end_time: endTime
+        };
+
+        if (id) upsertData.id = id;
+
+        try {
+          const { data, error } = await supabase
+            .from('working_hours')
+            .upsert(upsertData)
+            .select()
+            .single();
+
+          if (error) {
+            // Check for LockManager timeout specifically
+            if (error.message?.includes('LockManager') && retryCount < 2) {
+              console.warn(`LockManager timeout detected, retrying... (attempt ${retryCount + 1})`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              return performSave(retryCount + 1);
+            }
+            throw error;
+          }
+
+          // Update local state with the newly created ID if it was an insert
+          if (data && !id) {
+            setWorkingHours(prev => ({
+              ...prev,
+              [day]: { ...prev[day], id: data.id }
+            }));
+          }
+
+          alert('Horários salvos com sucesso!');
+        } catch (err: any) {
+          // Handle error that bubbled up after retries
+          if (err.message?.includes('LockManager') && retryCount < 2) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return performSave(retryCount + 1);
+          }
+          throw err;
+        }
       };
 
-      if (id) upsertData.id = id;
+      try {
+        await performSave();
+      } catch (err) {
+        const error = err as Error;
+        console.error('Error saving hours:', error);
 
-      const { data, error } = await supabase
-        .from('working_hours')
-        .upsert(upsertData)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Update local state with the newly created ID if it was an insert
-      if (data && !id) {
-        setWorkingHours(prev => ({
-          ...prev,
-          [day]: { ...prev[day], id: data.id }
-        }));
+        if (error.message?.includes('LockManager')) {
+          alert('O navegador demorou para responder. Por favor, tente clicar em salvar novamente.');
+        } else {
+          alert(`Erro ao salvar horários: ${error.message || 'Erro desconhecido'}`);
+        }
       }
-
-      alert('Horários salvos com sucesso!');
     } catch (err) {
-      const error = err as Error;
-      console.error('Error saving hours:', error);
-      alert(`Erro ao salvar horários: ${error.message || 'Erro desconhecido'}`);
+      console.error('Outer save error:', err);
     } finally {
       setSaving(false);
     }

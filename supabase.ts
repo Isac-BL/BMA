@@ -17,10 +17,9 @@ export const supabase = createClient(
             persistSession: true,
             autoRefreshToken: true,
             detectSessionInUrl: true,
-            storageKey: 'bma-barber-session', // Isolated key helps prevent lock contention
-        },
-        global: {
-            headers: { 'x-application-name': 'bma-barber-app' }
+            storage: window.localStorage,
+            // @ts-ignore - Disable Web Locks API to prevent mobile LockManager timeouts
+            lockType: 'none'
         }
     }
 );
